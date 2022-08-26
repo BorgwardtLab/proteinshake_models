@@ -55,7 +55,8 @@ Example:
 Create a pytorch geometric graph from an Atom3D dataset.
 And 
 
-```
+```python
+from datasets.atom3d_data import Atom3DDataset
 proteins = Atom3DDataset(root="./data").to_graph(k=5).pyg()
 ```
 
