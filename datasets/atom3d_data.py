@@ -91,5 +91,5 @@ class Atom3DDataset(TorchPDBDataset):
         return protein
 
 if __name__ == "__main__":
-    dataset = Atom3DDataset('psr', root='psr', use_precomputed=False)
+    dataset = Atom3DDataset('lba', root='lba', use_precomputed=False)
     print(dataset)
