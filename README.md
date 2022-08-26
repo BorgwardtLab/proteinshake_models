@@ -41,17 +41,14 @@ Select the logic for splitting with the `split_type` argument.
 
 * `split_type`: `None` or (see dictionary below)
 
-```
-
 | Dataset | Split type |
 | --------|------------|
-| 'lba' | `'sequence-identity-30', 'sequence-identity-60'`|
-| 'ppi' | `'DIPS'` |
-| 'res' | `'cath-topology'` |
-| 'msp' | `'sequence-identity-30'` |
-| 'lep' | `'protein'` |
-| 'psr' | `'year'` |
-```
+| `'lba'` | `'sequence-identity-30', 'sequence-identity-60'`|
+| `'ppi'` | `'DIPS'` |
+| `'res'` | `'cath-topology'` |
+| `'msp'` | `'sequence-identity-30'` |
+| `'lep'` | `'protein'` |
+| `'psr'` | `'year'` |
 
 Example:
 
