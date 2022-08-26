@@ -1,6 +1,5 @@
 """ Extend base ProteinShake dataset to load atom3d datasets.
 """
-
 import os
 import os.path as osp
 
@@ -9,7 +8,11 @@ from proteinshake.datasets import TorchPDBDataset
 import atom3d.datasets.datasets as da
 
 ATOM_DATASETS = {'lba', 'smp', 'pip', 'res', 'msp', 'lep', 'psr'}
-FOLDERS = {'lba': 'pdbbind_2019-refined-set'}
+
+FOLDERS = {'lba': 'pdbbind_2019-refined-set',
+           'psr': 'casp5_to_13'
+           }
+
 SPLIT_TYPES = {'lba': ['sequence-identity-30', 'sequence-identity-30'],
                'ppi': ['DIPS'],
                'res': ['cath-topology'],
@@ -17,6 +20,10 @@ SPLIT_TYPES = {'lba': ['sequence-identity-30', 'sequence-identity-30'],
                'lep': ['protein'],
                'psr': ['year']
                }
+
+COORDS_KEY = {'lba': 'atoms_protein',
+              'psr': 'atoms'
+              }
 
 class Atom3DDataset(TorchPDBDataset):
     """ Downloads any atom3d dataset into proteinshake.
@@ -61,7 +68,7 @@ class Atom3DDataset(TorchPDBDataset):
         protein_dfs = da.load_dataset(self.get_raw_files(), 'lmdb')
         proteins = []
         for p in protein_dfs:
-            df = p['atoms_protein'].loc[p['atoms_protein']['name'] == 'CA']
+            df = p[COORDS_KEY[self.atom_dataset]].loc[p[COORDS_KEY[self.atom_dataset]]['name'] == 'CA']
             protein = {'ID': p['id'],
                        'sequence': ''.join(df['resname']),
                        'residue_index': df['residue'].tolist(),
@@ -75,6 +82,7 @@ class Atom3DDataset(TorchPDBDataset):
 
     def add_protein_attributes(self, protein):
         if self.atom_dataset == 'psr':
+            protein['rmsd'] = protein['scores']['rmsd']
             pass
         if self.atom_dataset == 'lba':
             protein['smiles'] = protein['smiles']
