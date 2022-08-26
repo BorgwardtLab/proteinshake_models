@@ -52,12 +52,12 @@ Select the logic for splitting with the `split_type` argument.
 
 Example:
 
-Create a pytorch geometric graph from an Atom3D dataset.
+Create a pytorch geometric graph from an Atom3D ligand binding affinity dataset.
 And 
 
 ```python
 from datasets.atom3d_data import Atom3DDataset
-proteins = Atom3DDataset(root="./data").to_graph(k=5).pyg()
+proteins = Atom3DDataset(root="./data", atom_dataset="lba").to_graph(k=5).pyg()
 ```
 
 The returned object is a list of pyg graphs that can be fed to a loader.
