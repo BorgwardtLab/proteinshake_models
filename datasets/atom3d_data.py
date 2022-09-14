@@ -3,14 +3,19 @@
 import os
 import os.path as osp
 
-from proteinshake.utils import save
+from proteinshake.utils import save, load
 from proteinshake.datasets import TorchPDBDataset
 import atom3d.datasets.datasets as da
+
+three2one = {'ALA': 'A', 'CYS': 'C', 'ASP': 'D', 'GLU': 'E', 'PHE': 'F', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I', 'LYS': 'K', 'LEU': 'L', 'MET': 'M', 'ASN': 'N', 'PRO': 'P', 'GLN': 'Q', 'ARG': 'R', 'SER': 'S', 'THR': 'T', 'VAL': 'V', 'TRP': 'W', 'TYR': 'Y'}
+
+ALPHABET = 'ARNDCEQGHILKMFPSTWYV'
 
 ATOM_DATASETS = {'lba', 'smp', 'pip', 'res', 'msp', 'lep', 'psr'}
 
 FOLDERS = {'lba': 'pdbbind_2019-refined-set',
-           'psr': 'casp5_to_13'
+           'psr': 'casp5_to_13',
+           'ppi': 'DIPS'
            }
 
 SPLIT_TYPES = {'lba': ['sequence-identity-30', 'sequence-identity-30'],
@@ -22,7 +27,8 @@ SPLIT_TYPES = {'lba': ['sequence-identity-30', 'sequence-identity-30'],
                }
 
 COORDS_KEY = {'lba': 'atoms_protein',
-              'psr': 'atoms'
+              'psr': 'atoms',
+              'ppi': 'atoms_pairs'
               }
 
 class Atom3DDataset(TorchPDBDataset):
@@ -67,26 +73,38 @@ class Atom3DDataset(TorchPDBDataset):
             return
         protein_dfs = da.load_dataset(self.get_raw_files(), 'lmdb')
         proteins = []
-        for p in protein_dfs:
-            df = p[COORDS_KEY[self.atom_dataset]].loc[p[COORDS_KEY[self.atom_dataset]]['name'] == 'CA']
-            protein = {'ID': p['id'],
-                       'sequence': ''.join(df['resname']),
+        skipped = 0
+        for protein_raw_info in protein_dfs:
+            df = protein_raw_info[COORDS_KEY[self.atom_dataset]].loc[protein_raw_info[COORDS_KEY[self.atom_dataset]]['name'] == 'CA']
+            try:
+                seq = ''.join([three2one[r] for r in df['resname']])
+            except KeyError:
+                print(f">> Skipped {skipped} proteins of {len(protein_dfs)} with non-standard amino-acid.")
+                skipped += 1
+                continue
+
+            protein = {'ID': protein_raw_info['id'],
+                       'sequence': seq,
                        'residue_index': df['residue'].tolist(),
                        'coords': df[['x','y','z']].values.tolist(),
                        'chain': df['chain'].tolist()
                        }
+
+            protein = self.add_protein_attributes(protein, protein_raw_info)
             proteins.append(protein)
-            protein = self.add_protein_attributes(protein)
+
         save(proteins, f'{self.root}/{self.__class__.__name__}.json')
         pass
 
-    def add_protein_attributes(self, protein):
+    def add_protein_attributes(self, protein, protein_raw_info):
         if self.atom_dataset == 'psr':
-            protein['rmsd'] = protein['scores']['rmsd']
+            protein['rmsd'] = protein_raw_info['scores']['rmsd']
             pass
         if self.atom_dataset == 'lba':
-            protein['smiles'] = protein['smiles']
-            protein['affinity'] = protein['scores']['neglog_aff']
+            protein['smiles'] = protein_raw_info['smiles']
+            protein['affinity'] = protein_raw_info['scores']['neglog_aff']
+            pass
+        if self.atom_dataset == 'ppi':
             pass
         return protein
 
