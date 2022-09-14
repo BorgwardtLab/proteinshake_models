@@ -123,7 +123,7 @@ def main():
     args = load_args()
     print(args)
 
-    datapath = '../data'
+    datapath = '../data/AlphaFold/{}'.format(args.organism)
     dset = datasets.AlphaFoldDataset(
         root=datapath, organism=args.organism).to_graph(eps=args.graph_eps).pyg(
         transform=T.Compose([MaskNode(20, mask_rate=args.mask_rate)])
