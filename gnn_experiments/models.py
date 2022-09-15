@@ -2,6 +2,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import torch_geometric.nn as gnn
+from torch_geometric import utils
 
 
 class GINConv(gnn.MessagePassing):
@@ -49,7 +50,7 @@ class GCNConv(gnn.MessagePassing):
 
         row, col = edge_index
 
-        deg = degree(row, x.size(0), dtype = x.dtype) + 1
+        deg = utils.degree(row, x.size(0), dtype = x.dtype) + 1
         deg_inv_sqrt = deg.pow(-0.5)
         deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
 
