@@ -15,7 +15,8 @@ ATOM_DATASETS = {'lba', 'smp', 'pip', 'res', 'msp', 'lep', 'psr'}
 
 FOLDERS = {'lba': 'pdbbind_2019-refined-set',
            'psr': 'casp5_to_13',
-           'ppi': 'DIPS'
+           'ppi': 'DIPS',
+           'msp': 'MSP'
            }
 
 SPLIT_TYPES = {'lba': ['sequence-identity-30', 'sequence-identity-30'],
@@ -52,6 +53,7 @@ class Atom3DDataset(TorchPDBDataset):
 
         super().__init__(**kwargs)
         pass
+
     def download(self):
         da.download_dataset(self.atom_dataset,
                             osp.join(self.root, "raw", "files"),
