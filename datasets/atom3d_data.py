@@ -3,6 +3,8 @@
 import os
 import os.path as osp
 
+from tqdm import tqdm
+
 from proteinshake.datasets import Dataset
 from proteinshake.utils import save, load, write_avro
 import atom3d.datasets.datasets as da
@@ -77,13 +79,11 @@ class Atom3DDataset(Dataset):
                 # else SPLIT_TYPES[self.split_type]
         return osp.join(self.root, "raw", "files", "raw", fname)
 
-    def parse_pdb(self, path):
-        if os.path.exists(f'{self.root}/{self.__class__.__name__}.{self.resolution}.avro'):
-            return
+    def parse(self):
         protein_dfs = da.load_dataset(self.get_raw_files(), 'lmdb')
         proteins = []
         skipped = 0
-        for protein_raw_info in protein_dfs:
+        for protein_raw_info in tqdm(protein_dfs):
             df_res = protein_raw_info[COORDS_KEY[self.atom_dataset]].loc[protein_raw_info[COORDS_KEY[self.atom_dataset]]['name'] == 'CA']
             df_res = df_res.loc[df_res['hetero'] == ' ']
             df_atom = protein_raw_info[COORDS_KEY[self.atom_dataset]]
@@ -121,15 +121,22 @@ class Atom3DDataset(Dataset):
             protein = self.add_protein_attributes(protein, protein_raw_info)
             proteins.append(protein)
 
-        return proteins
+        residue_proteins = [{'protein':p['protein'], 'residue':p['residue']} for p in proteins]
+        atom_proteins = [{'protein':p['protein'], 'atom':p['atom']} for p in proteins]
+        write_avro(residue_proteins, f'{self.root}/{self.__class__.__name__}.residue.avro')
+        write_avro(atom_proteins, f'{self.root}/{self.__class__.__name__}.atom.avro')
+        pass
 
     def add_protein_attributes(self, protein, protein_raw_info):
         if self.atom_dataset == 'psr':
-            protein['rmsd'] = protein_raw_info['scores']['rmsd']
+            protein['protein']['rmsd'] = protein_raw_info['scores']['rmsd']
+            protein['atom']['rmsd'] = protein_raw_info['scores']['rmsd']
             pass
         if self.atom_dataset == 'lba':
-            protein['smiles'] = protein_raw_info['smiles']
-            protein['affinity'] = protein_raw_info['scores']['neglog_aff']
+            protein['protein']['smiles'] = protein_raw_info['smiles']
+            protein['atom']['smiles'] = protein_raw_info['smiles']
+            protein['protein']['affinity'] = protein_raw_info['scores']['neglog_aff']
+            protein['atom']['affinity'] = protein_raw_info['scores']['neglog_aff']
             pass
         if self.atom_dataset == 'ppi':
             pass
