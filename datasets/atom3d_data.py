@@ -40,7 +40,12 @@ class Atom3DDataset(Dataset):
         split_type (str): the logic used for splitting examples. Default: None gives whole dataset.
 
     """
-    def __init__(self, atom_dataset, root="data", resolution="residue", split_type=None, **kwargs):
+    def __init__(self, atom_dataset,
+                       root="data",
+                       use_precomputed=False,
+                       resolution="residue",
+                       split_type=None,
+                       **kwargs):
         self.atom_dataset = atom_dataset
         self.split_type = split_type
         self.resolution = resolution
@@ -52,7 +57,7 @@ class Atom3DDataset(Dataset):
         assert split_type is None or split_type in SPLIT_TYPES[atom_dataset],\
             f"Invalid split, choose from {SPLIT_TYPES[atom_dataset]}"
 
-        super().__init__(**kwargs)
+        super().__init__(root=root, use_precomputed=use_precomputed, **kwargs)
         pass
 
     def download(self):
