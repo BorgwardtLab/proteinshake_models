@@ -13,7 +13,7 @@ three2one = {'ALA': 'A', 'CYS': 'C', 'ASP': 'D', 'GLU': 'E', 'PHE': 'F', 'GLY': 
 
 ALPHABET = 'ARNDCEQGHILKMFPSTWYV'
 
-ATOM_DATASETS = {'lba', 'smp', 'pip', 'res', 'msp', 'lep', 'psr'}
+ATOM_DATASETS = {'lba', 'smp', 'ppi', 'res', 'msp', 'lep', 'psr'}
 
 FOLDERS = {'lba': 'pdbbind_2019-refined-set',
            'psr': 'casp5_to_13',
@@ -38,7 +38,7 @@ class Atom3DDataset(Dataset):
     """ Downloads any atom3d dataset into proteinshake.
 
     Attributes:
-        atom_dataset (str): name of a dataset from atom3d ('lba', 'smp', 'pip', 'res', 'msp', 'lep', 'psr')
+        atom_dataset (str): name of a dataset from atom3d ('lba', 'smp', 'ppi', 'res', 'msp', 'lep', 'psr')
         split_type (str): the logic used for splitting examples. Default: None gives whole dataset.
 
     """
@@ -55,7 +55,7 @@ class Atom3DDataset(Dataset):
         self.raw_folder = FOLDERS[atom_dataset]
 
         assert atom_dataset in ATOM_DATASETS,\
-            f"Invalid atom3d dataset, use one of {ATOM_DATASETS}"
+            f"Invalid atom3d dataset {atom_dataset}, use one of {ATOM_DATASETS}"
         assert split_type is None or split_type in SPLIT_TYPES[atom_dataset],\
             f"Invalid split, choose from {SPLIT_TYPES[atom_dataset]}"
 
