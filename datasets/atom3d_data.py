@@ -40,7 +40,7 @@ class Atom3DDataset(TorchPDBDataset):
         split_type (str): the logic used for splitting examples. Default: None gives whole dataset.
 
     """
-    def __init__(self, atom_dataset, root="data", split_type=None, **kwargs):
+    def __init__(self, atom_dataset, root="data", split_type=None, use_precomputed=False, **kwargs):
         self.atom_dataset = atom_dataset
         self.split_type = split_type
 
@@ -51,7 +51,7 @@ class Atom3DDataset(TorchPDBDataset):
         assert split_type is None or split_type in SPLIT_TYPES[atom_dataset],\
             f"Invalid split, choose from {SPLIT_TYPES[atom_dataset]}"
 
-        super().__init__(**kwargs)
+        super().__init__(root=root, use_precomputed=use_precomputed, **kwargs)
         pass
 
     def download(self):
