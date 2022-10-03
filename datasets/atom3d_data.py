@@ -3,8 +3,8 @@
 import os
 import os.path as osp
 
-from proteinshake.utils import save, load
-from proteinshake.datasets import TorchPDBDataset
+from proteinshake.datasets import Dataset
+from proteinshake.utils import save, load, write_avro
 import atom3d.datasets.datasets as da
 
 three2one = {'ALA': 'A', 'CYS': 'C', 'ASP': 'D', 'GLU': 'E', 'PHE': 'F', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I', 'LYS': 'K', 'LEU': 'L', 'MET': 'M', 'ASN': 'N', 'PRO': 'P', 'GLN': 'Q', 'ARG': 'R', 'SER': 'S', 'THR': 'T', 'VAL': 'V', 'TRP': 'W', 'TYR': 'Y'}
@@ -32,7 +32,7 @@ COORDS_KEY = {'lba': 'atoms_protein',
               'ppi': 'atoms_pairs'
               }
 
-class Atom3DDataset(TorchPDBDataset):
+class Atom3DDataset(Dataset):
     """ Downloads any atom3d dataset into proteinshake.
 
     Attributes:
@@ -40,9 +40,10 @@ class Atom3DDataset(TorchPDBDataset):
         split_type (str): the logic used for splitting examples. Default: None gives whole dataset.
 
     """
-    def __init__(self, atom_dataset, root="data", split_type=None, **kwargs):
+    def __init__(self, atom_dataset, root="data", resolution="residue", split_type=None, **kwargs):
         self.atom_dataset = atom_dataset
         self.split_type = split_type
+        self.resolution = resolution
 
         self.raw_folder = FOLDERS[atom_dataset]
 
@@ -55,13 +56,14 @@ class Atom3DDataset(TorchPDBDataset):
         pass
 
     def download(self):
+        print("Downloading")
         da.download_dataset(self.atom_dataset,
                             osp.join(self.root, "raw", "files"),
                             split=self.split_type
                             )
         pass
 
-    def download_precomputed(self):
+    def download_precomputed(self, resolution="residue"):
         pass
 
     def get_raw_files(self):
@@ -70,33 +72,51 @@ class Atom3DDataset(TorchPDBDataset):
                 # else SPLIT_TYPES[self.split_type]
         return osp.join(self.root, "raw", "files", "raw", fname)
 
-    def parse(self):
-        if os.path.exists(f'{self.root}/{self.__class__.__name__}.json'):
+    def parse_pdb(self, path):
+        if os.path.exists(f'{self.root}/{self.__class__.__name__}.{self.resolution}.avro'):
             return
         protein_dfs = da.load_dataset(self.get_raw_files(), 'lmdb')
         proteins = []
         skipped = 0
         for protein_raw_info in protein_dfs:
-            df = protein_raw_info[COORDS_KEY[self.atom_dataset]].loc[protein_raw_info[COORDS_KEY[self.atom_dataset]]['name'] == 'CA']
+            df_res = protein_raw_info[COORDS_KEY[self.atom_dataset]].loc[protein_raw_info[COORDS_KEY[self.atom_dataset]]['name'] == 'CA']
+            df_res = df_res.loc[df_res['hetero'] == ' ']
+            df_atom = protein_raw_info[COORDS_KEY[self.atom_dataset]]
+            df_atom = df_atom.loc[df_atom['hetero'] == ' ']
             try:
-                seq = ''.join([three2one[r] for r in df['resname']])
-            except KeyError:
-                print(f">> Skipped {skipped} proteins of {len(protein_dfs)} with non-standard amino-acid.")
+                seq = ''.join([three2one[r] for r in df_res['resname']])
+            except KeyError as e:
+                print(f">> Skipped {skipped} proteins of {len(protein_dfs)} with non-standard amino-acid {e}.")
                 skipped += 1
                 continue
 
-            protein = {'ID': protein_raw_info['id'],
-                       'sequence': seq,
-                       'residue_index': df['residue'].tolist(),
-                       'coords': df[['x','y','z']].values.tolist(),
-                       'chain': df['chain'].tolist()
-                       }
-
+            protein = {
+                'protein': {
+                    'ID': protein_raw_info['id'],
+                    'sequence': seq,
+                },
+                'residue': {
+                    'residue_number': df_res['residue'].tolist(),
+                    'residue_type': [three2one[r] for r in df_res['resname'].tolist()],
+                    'chain_id': df_res['chain'].tolist(),
+                    'x': df_res['x'].tolist(),
+                    'y': df_res['y'].tolist(),
+                    'z': df_res['z'].tolist(),
+                },
+                'atom': {
+                    'atom_number': df_atom.index.tolist(),
+                    'atom_type': df_atom['fullname'].tolist(),
+                    'residue_number': df_atom['residue'].tolist(),
+                    'residue_type': [three2one[r] for r in df_atom['resname'].tolist()],
+                    'x': df_atom['x'].tolist(),
+                    'y': df_atom['y'].tolist(),
+                    'z': df_atom['z'].tolist(),
+                },
+            }
             protein = self.add_protein_attributes(protein, protein_raw_info)
             proteins.append(protein)
 
-        save(proteins, f'{self.root}/{self.__class__.__name__}.json')
-        pass
+        return proteins
 
     def add_protein_attributes(self, protein, protein_raw_info):
         if self.atom_dataset == 'psr':
