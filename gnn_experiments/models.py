@@ -2,6 +2,8 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 import torch_geometric.nn as gnn
+from torch_geometric import utils
+from position_encoder import build_position_encoding
 
 
 class GINConv(gnn.MessagePassing):
@@ -49,14 +51,14 @@ class GCNConv(gnn.MessagePassing):
 
         row, col = edge_index
 
-        deg = degree(row, x.size(0), dtype = x.dtype) + 1
+        deg = utils.degree(row, x.size(0), dtype = x.dtype) + 1
         deg_inv_sqrt = deg.pow(-0.5)
         deg_inv_sqrt[deg_inv_sqrt == float('inf')] = 0
 
         norm = deg_inv_sqrt[row] * deg_inv_sqrt[col]
 
         return self.propagate(
-            edge_index, x=x, edge_attr = edge_embedding, norm=norm) + F.relu(
+            edge_index, x=x, edge_attr = edge_attr, norm=norm) + F.relu(
             x + self.root_emb.weight) * 1./deg.view(-1,1)
 
     def message(self, x_j, edge_attr, norm):
@@ -105,7 +107,7 @@ NUM_PROTEINS_MASK = NUM_PROTEINS + 1
 
 class GNN(nn.Module):
     def __init__(self, embed_dim=256, num_layers=3, dropout=0.0, gnn_type='gin',
-                 use_edge_attr=False):
+                 use_edge_attr=False, pe=None):
         super().__init__()
         self.embed_dim = embed_dim
         self.num_layers = num_layers
@@ -113,6 +115,8 @@ class GNN(nn.Module):
 
         # self.x_embedding = nn.Linear(NUM_PROTEINS_MASK, embed_dim, bias=False)
         self.x_embedding = nn.Embedding(NUM_PROTEINS_MASK, embed_dim)
+
+        self.position_embedding = build_position_encoding(embed_dim, pe)
 
         gnn_model = GET_GNN_ENCODER[gnn_type]
         self.gnns = nn.ModuleList()
@@ -127,6 +131,10 @@ class GNN(nn.Module):
         x, edge_index, edge_attr = data.x, data.edge_index, data.edge_attr
 
         output = self.x_embedding(x)
+        if self.position_embedding is not None:
+            pos = self.position_embedding(data)
+            output = output + pos
+
         for layer in range(self.num_layers):
             output = self.gnns[layer](output, edge_index, edge_attr)
             output = self.batch_norms[layer](output)
@@ -156,10 +164,10 @@ class NodeClassifier(nn.Module):
 
 class GNN_nodepred(nn.Module):
     def __init__(self, num_class, embed_dim=256, num_layers=3, dropout=0.0, gnn_type='gin',
-                 use_edge_attr=False, out_head='mlp'):
+                 use_edge_attr=False, pe=None, out_head='mlp'):
         super().__init__()
 
-        self.encoder = GNN(embed_dim, num_layers, dropout, gnn_type, use_edge_attr)
+        self.encoder = GNN(embed_dim, num_layers, dropout, gnn_type, use_edge_attr, pe)
 
         if out_head == 'linear':
             self.out_head = nn.Linear(embed_dim, num_class)
@@ -183,10 +191,10 @@ class GNN_nodepred(nn.Module):
 
 class GNN_graphpred(nn.Module):
     def __init__(self, num_class, embed_dim=256, num_layers=3, dropout=0.0, gnn_type='gin',
-                 use_edge_attr=False, global_pool='mean', out_head='mlp'):
+                 use_edge_attr=False, pe=None, global_pool='mean', out_head='mlp'):
         super().__init__()
 
-        self.encoder = GNN(embed_dim, num_layers, dropout, gnn_type, use_edge_attr)
+        self.encoder = GNN(embed_dim, num_layers, dropout, gnn_type, use_edge_attr, pe)
 
         self.global_pool = global_pool
         if global_pool == 'mean':

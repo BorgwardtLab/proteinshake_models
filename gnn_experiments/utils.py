@@ -7,6 +7,11 @@ class OneHotToIndex(object):
         data.x = data.x.argmax(dim=-1)
         return data
 
+class ResidueIdx(object):
+    def __call__(self, data):
+        data.residue_idx = torch.arange(data.num_nodes)
+        return data
+
 class MaskNode(object):
     def __init__(self, num_node_types, mask_rate=0.15):
         self.num_node_types = num_node_types
