@@ -15,7 +15,7 @@ import torch_geometric.transforms as T
 from proteinshake import datasets
 
 from models import GNN, NodeClassifier, GNN_TYPES
-from utils import OneHotToIndex, MaskNode
+from utils import OneHotToIndex, MaskNode, ResidueIdx
 from utils import get_cosine_schedule_with_warmup
 
 import pytorch_lightning as pl
@@ -43,6 +43,7 @@ def load_args():
     parser.add_argument('--gnn-type', type=str, default='gin', choices=GNN_TYPES,
                         help='gnn type')
     parser.add_argument('--use-edge-attr', action='store_true', help='use edge features')
+    parser.add_argument('--pe', type=str, default=None, choices=['learned', 'sine'])
     parser.add_argument('--mask-rate', type=float, default=0.15,
                         help='masking ratio')
 
@@ -73,9 +74,9 @@ def load_args():
         args.save_logs = True
         outdir = args.outdir
         outdir = outdir + '/{}_{}'.format(args.lr, args.weight_decay)
-        outdir = outdir + '/{}_{}_{}_{}_{}_{}'.format(
+        outdir = outdir + '/{}_{}_{}_{}_{}_{}_{}'.format(
             args.mask_rate, args.gnn_type, args.num_layers,
-            args.embed_dim, args.dropout, args.use_edge_attr
+            args.embed_dim, args.dropout, args.use_edge_attr, args.pe
         )
         os.makedirs(outdir, exist_ok=True)
         args.outdir = outdir
@@ -126,7 +127,7 @@ def main():
     datapath = '../data/AlphaFold/{}'.format(args.organism)
     dset = datasets.AlphaFoldDataset(
         root=datapath, organism=args.organism).to_graph(eps=args.graph_eps).pyg(
-        transform=T.Compose([MaskNode(20, mask_rate=args.mask_rate)])
+        transform=T.Compose([ResidueIdx(), MaskNode(20, mask_rate=args.mask_rate)])
     )
 
     data_loader = DataLoader(dset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
@@ -136,7 +137,8 @@ def main():
         args.num_layers,
         args.dropout,
         args.gnn_type,
-        args.use_edge_attr
+        args.use_edge_attr,
+        args.pe
     )
 
     classifier = NodeClassifier(args.embed_dim)
