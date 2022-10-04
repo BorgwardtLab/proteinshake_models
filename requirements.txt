@@ -1,2 +1,3 @@
 proteinshake
 atom3d
+rdkit
