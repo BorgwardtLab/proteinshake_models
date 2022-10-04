@@ -93,7 +93,7 @@ class Atom3DDataset(Dataset):
         proteins = []
         pairs = []
         skipped = 0
-        for i, protein_raw_info in tqdm(enumerate(protein_dfs)):
+        for protein_raw_info in tqdm(protein_dfs):
             df_res = protein_raw_info[COORDS_KEY[self.atom_dataset]].loc[protein_raw_info[COORDS_KEY[self.atom_dataset]]['name'] == 'CA']
             df_res = df_res.loc[df_res['hetero'] == ' ']
             df_atom = protein_raw_info[COORDS_KEY[self.atom_dataset]]
