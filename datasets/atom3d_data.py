@@ -48,8 +48,6 @@ class Atom3DDataset(Dataset):
 
     """
     def __init__(self, atom_dataset,
-                       root="data",
-                       use_precomputed=True,
                        **kwargs):
         self.atom_dataset = atom_dataset
         self.raw_folder = FOLDERS[atom_dataset]
@@ -57,7 +55,7 @@ class Atom3DDataset(Dataset):
         assert atom_dataset in ATOM_DATASETS,\
             f"Invalid atom3d dataset {atom_dataset}, use one of {ATOM_DATASETS}"
 
-        super().__init__(root=root, use_precomputed=use_precomputed, **kwargs)
+        super().__init__(**kwargs)
         pass
 
     def download(self):
