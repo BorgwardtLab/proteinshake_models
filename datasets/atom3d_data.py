@@ -25,7 +25,7 @@ FOLDERS = {'lba': 'pdbbind_2019-refined-set',
            'msp': 'MSP'
            }
 
-SPLIT_TYPES = {'lba': ['sequence-identity-30', 'sequence-identity-30'],
+SPLIT_TYPES = {'lba': ['sequence-identity-30', 'sequence-identity-60'],
                'ppi': ['DIPS'],
                'res': ['cath-topology'],
                'msp': ['sequence-identity-30'],
@@ -36,7 +36,7 @@ SPLIT_TYPES = {'lba': ['sequence-identity-30', 'sequence-identity-30'],
 COORDS_KEY = {'lba': 'atoms_protein',
               'psr': 'atoms',
               'ppi': 'atoms_pairs',
-              'msp': 'original_atoms'
+              'msp': ('original_atoms', 'mutated_atoms')
               }
 
 class Atom3DDataset(Dataset):
@@ -91,12 +91,9 @@ class Atom3DDataset(Dataset):
     def parse(self):
         protein_dfs = da.load_dataset(self.get_raw_files(), 'lmdb')
         proteins = []
+        pairs = []
         skipped = 0
-        i = 0
-        for protein_raw_info in tqdm(protein_dfs):
-            if i > 10:
-                break
-            i += 1
+        for i, protein_raw_info in tqdm(enumerate(protein_dfs)):
             df_res = protein_raw_info[COORDS_KEY[self.atom_dataset]].loc[protein_raw_info[COORDS_KEY[self.atom_dataset]]['name'] == 'CA']
             df_res = df_res.loc[df_res['hetero'] == ' ']
             df_atom = protein_raw_info[COORDS_KEY[self.atom_dataset]]
@@ -164,11 +161,21 @@ class Atom3DDataset(Dataset):
         if self.atom_dataset == 'ppi':
             pass
         if self.atom_dataset == 'msp':
-            print(protein_raw_info)
-            print(protein_raw_info['label'])
+            # see https://github.com/drorlab/atom3d/blob/master/examples/msp/gnn/data.py
+            protein['protein']['label'] = int(protein_raw_info['label'])
+            # id: '1A22_A_B_EA66A'
+            mutation = protein_raw_info['id'].split('_')[-1]
+            chain, res = mutation[1], int(mutation[2:-1])
+            orig_idx = self._extract_mut_idx(orig_df, mutation)
+            mut_idx = self._extract_mut_idx(mut_df, mutation)
             pass
 
         return protein
+
+    def _extract_mut_idx(self, df, mutation):
+        chain, res = mutation[1], int(mutation[2:-1])
+        idx = df.index[(df.chain.values == chain) & (df.residue.values == res)].values
+        return idx
 
 if __name__ == "__main__":
     dataset = Atom3DDataset('lba', root='lba', use_precomputed=False)
