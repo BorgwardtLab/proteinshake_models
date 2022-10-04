@@ -49,20 +49,13 @@ class Atom3DDataset(Dataset):
     """
     def __init__(self, atom_dataset,
                        root="data",
-                       use_precomputed=False,
-                       resolution="residue",
-                       split_type=None,
+                       use_precomputed=True,
                        **kwargs):
         self.atom_dataset = atom_dataset
-        self.split_type = split_type
-        self.resolution = resolution
-
         self.raw_folder = FOLDERS[atom_dataset]
 
         assert atom_dataset in ATOM_DATASETS,\
             f"Invalid atom3d dataset {atom_dataset}, use one of {ATOM_DATASETS}"
-        assert split_type is None or split_type in SPLIT_TYPES[atom_dataset],\
-            f"Invalid split, choose from {SPLIT_TYPES[atom_dataset]}"
 
         super().__init__(root=root, use_precomputed=use_precomputed, **kwargs)
         pass
@@ -71,7 +64,6 @@ class Atom3DDataset(Dataset):
         print("Downloading")
         da.download_dataset(self.atom_dataset,
                             osp.join(self.root, "raw", "files"),
-                            split=self.split_type
                             )
         pass
 

@@ -14,9 +14,14 @@ SPLIT_TYPES = {'lba': ['sequence-identity-30', 'sequence-identity-60'],
                'psr': ['year']
                }
 
+proteins = Atom3DDataset(root="lba", atom_dataset="lba").to_graph(eps=8).pyg()
+dl = DataLoader(proteins, batch_size=2)
+for b in dl:
+    print(b)
+    break
 
-for task in tasks:
-    proteins = Atom3DDataset(root=task, split_type=SPLIT_TYPES[task][0], atom_dataset=task, use_precomputed=False)
-    proteins = proteins.to_graph(k=5).pyg()
-    dl = DataLoader(proteins, batch_size=2)
+# for task in tasks:
+    # proteins = Atom3DDataset(root=task, split_type=SPLIT_TYPES[task][0], atom_dataset=task, use_precomputed=False)
+    # proteins = proteins.to_graph(k=5).pyg()
+    # dl = DataLoader(proteins, batch_size=2)
 
