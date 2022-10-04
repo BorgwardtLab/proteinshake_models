@@ -3,10 +3,14 @@
 import os
 import os.path as osp
 
+import numpy as np
 from tqdm import tqdm
+from rdkit import Chem
+from rdkit.Chem import MACCSkeys
+from rdkit.Chem import AllChem
 
 from proteinshake.datasets import Dataset
-from proteinshake.utils import save, load, write_avro
+from proteinshake.utils import save, load, write_avro, unzip_file
 import atom3d.datasets.datasets as da
 
 three2one = {'ALA': 'A', 'CYS': 'C', 'ASP': 'D', 'GLU': 'E', 'PHE': 'F', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I', 'LYS': 'K', 'LEU': 'L', 'MET': 'M', 'ASN': 'N', 'PRO': 'P', 'GLN': 'Q', 'ARG': 'R', 'SER': 'S', 'THR': 'T', 'VAL': 'V', 'TRP': 'W', 'TYR': 'Y'}
@@ -31,7 +35,8 @@ SPLIT_TYPES = {'lba': ['sequence-identity-30', 'sequence-identity-30'],
 
 COORDS_KEY = {'lba': 'atoms_protein',
               'psr': 'atoms',
-              'ppi': 'atoms_pairs'
+              'ppi': 'atoms_pairs',
+              'msp': 'original_atoms'
               }
 
 class Atom3DDataset(Dataset):
@@ -70,7 +75,11 @@ class Atom3DDataset(Dataset):
                             )
         pass
 
-    def download_precomputed(self, resolution="residue"):
+    def download_precomputed(self, resolution='residue'):
+        """ Downloads the precomputed dataset from the ProteinShake repository.
+        """
+        if not os.path.exists(f'{self.root}/{self.__class__.__name__}.{resolution}.avro'):
+            raise FileNotFoundError
         pass
 
     def get_raw_files(self):
@@ -83,7 +92,11 @@ class Atom3DDataset(Dataset):
         protein_dfs = da.load_dataset(self.get_raw_files(), 'lmdb')
         proteins = []
         skipped = 0
+        i = 0
         for protein_raw_info in tqdm(protein_dfs):
+            if i > 10:
+                break
+            i += 1
             df_res = protein_raw_info[COORDS_KEY[self.atom_dataset]].loc[protein_raw_info[COORDS_KEY[self.atom_dataset]]['name'] == 'CA']
             df_res = df_res.loc[df_res['hetero'] == ' ']
             df_atom = protein_raw_info[COORDS_KEY[self.atom_dataset]]
@@ -128,18 +141,33 @@ class Atom3DDataset(Dataset):
         pass
 
     def add_protein_attributes(self, protein, protein_raw_info):
+        
         if self.atom_dataset == 'psr':
             protein['protein']['rmsd'] = protein_raw_info['scores']['rmsd']
             protein['atom']['rmsd'] = protein_raw_info['scores']['rmsd']
             pass
         if self.atom_dataset == 'lba':
+            mol = Chem.MolFromSmiles(protein_raw_info['smiles'])
+            fp_morgan = list(map(int, AllChem.GetMorganFingerprintAsBitVect(mol, 2, nBits=1024).ToBitString()))
+            fp_maccs = list(map(int, MACCSkeys.GenMACCSKeys(mol).ToBitString()))
+
             protein['protein']['smiles'] = protein_raw_info['smiles']
-            protein['atom']['smiles'] = protein_raw_info['smiles']
             protein['protein']['affinity'] = protein_raw_info['scores']['neglog_aff']
+            protein['protein']['fp_maccs'] = fp_maccs
+            protein['protein']['fp_morgan_r2'] = fp_morgan
+
+            protein['atom']['smiles'] = protein_raw_info['smiles']
             protein['atom']['affinity'] = protein_raw_info['scores']['neglog_aff']
+            protein['atom']['fp_maccs'] = fp_maccs
+            protein['atom']['fp_morgan_r2'] = fp_morgan
             pass
         if self.atom_dataset == 'ppi':
             pass
+        if self.atom_dataset == 'msp':
+            print(protein_raw_info)
+            print(protein_raw_info['label'])
+            pass
+
         return protein
 
 if __name__ == "__main__":
