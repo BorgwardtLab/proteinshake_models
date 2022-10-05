@@ -68,8 +68,12 @@ class Atom3DDataset(Dataset):
     def download_precomputed(self, resolution='residue'):
         """ Downloads the precomputed dataset from the ProteinShake repository.
         """
-        if not os.path.exists(f'{self.root}/{self.__class__.__name__}.{resolution}.avro'):
-            raise FileNotFoundError
+        parsed_path = f'{self.root}/{self.__class__.__name__}.{resolution}.avro'
+        if not os.path.exists(parsed_path):
+            print(">>> Did not find precomputed data, downloading and parsing.")
+            self.start_download()
+            print(">>> Parsing")
+            self.parse()
         pass
 
     def get_raw_files(self):
@@ -123,6 +127,7 @@ class Atom3DDataset(Dataset):
 
         residue_proteins = [{'protein':p['protein'], 'residue':p['residue']} for p in proteins]
         atom_proteins = [{'protein':p['protein'], 'atom':p['atom']} for p in proteins]
+        print(">>> Dumping")
         write_avro(residue_proteins, f'{self.root}/{self.__class__.__name__}.residue.avro')
         write_avro(atom_proteins, f'{self.root}/{self.__class__.__name__}.atom.avro')
         pass
