@@ -53,17 +53,6 @@ class VoxelNet_Pretrain(VoxelNet):
         )
 
     def forward(self, batch):
-        masked, targets, mask = batch
+        data, masked, mask = batch
         x = self.base(masked.cuda())
         return self.output(x).permute(0,2,3,4,1)
-
-class VoxelNet_EC(VoxelNet):
-
-    def __init__(self):
-        super().__init__()
-        self.output = nn.Linear(128*50*50*50, 1)
-
-    def forward(self, x):
-        x = self.base(x)
-        x = torch.flatten(x,1)
-        return self.output(x)
