@@ -34,6 +34,10 @@ class Trainer():
         self.optimizer.step()
         return float(loss)
 
+    def save(self):
+        self.model.save_weights(self.path+'/weights.pt')
+        self.model.base.save_weights(self.path+'/base_weights.pt')
+
     def plot(self):
         sns.lineplot(x=np.arange(len(self.losses)), y=self.losses)
         plt.savefig(self.path+'/loss.png')

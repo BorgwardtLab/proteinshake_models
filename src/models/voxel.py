@@ -56,3 +56,18 @@ class VoxelNet_Pretrain(VoxelNet):
         data, masked, mask = batch
         x = self.base(masked.cuda())
         return self.output(x).permute(0,2,3,4,1)
+
+
+class VoxelNet_EC(VoxelNet):
+
+    def __init__(self, hidden_dim=128, kernel_size=3):
+        super().__init__()
+        self.output = nn.Sequential(
+            nn.Linear(hidden_dim, 7),
+        )
+
+    def forward(self, batch):
+        data, label = batch
+        x = self.base(data.cuda())
+        x = torch.amax(x.permute(0,2,3,4,1), dim=(1,2,3))
+        return self.output(x)
