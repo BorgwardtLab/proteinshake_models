@@ -62,6 +62,10 @@ class VoxelNet_EC(VoxelNet):
 
     def __init__(self, hidden_dim=128, kernel_size=3):
         super().__init__()
+        self.layer = nn.Sequential(
+            nn.Conv3d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=kernel_size, stride=1, padding='same'),
+            nn.ReLU()
+        )
         self.output = nn.Sequential(
             nn.Linear(hidden_dim, 7),
         )
@@ -69,5 +73,5 @@ class VoxelNet_EC(VoxelNet):
     def forward(self, batch):
         data, label = batch
         x = self.base(data.cuda())
-        x = torch.amax(x.permute(0,2,3,4,1), dim=(1,2,3))
+        x = torch.amax(self.layer(x).permute(0,2,3,4,1), dim=(1,2,3))
         return self.output(x)
