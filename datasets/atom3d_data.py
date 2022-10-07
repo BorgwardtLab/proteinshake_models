@@ -4,7 +4,7 @@ import os
 import os.path as osp
 
 from proteinshake.utils import save, load
-from proteinshake.datasets import TorchPDBDataset
+from proteinshake.datasets import Dataset
 import atom3d.datasets.datasets as da
 
 three2one = {'ALA': 'A', 'CYS': 'C', 'ASP': 'D', 'GLU': 'E', 'PHE': 'F', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I', 'LYS': 'K', 'LEU': 'L', 'MET': 'M', 'ASN': 'N', 'PRO': 'P', 'GLN': 'Q', 'ARG': 'R', 'SER': 'S', 'THR': 'T', 'VAL': 'V', 'TRP': 'W', 'TYR': 'Y'}
@@ -31,7 +31,7 @@ COORDS_KEY = {'lba': 'atoms_protein',
               'ppi': 'atoms_pairs'
               }
 
-class Atom3DDataset(TorchPDBDataset):
+class Atom3DDataset(Dataset):
     """ Downloads any atom3d dataset into proteinshake.
 
     Attributes:
@@ -57,9 +57,6 @@ class Atom3DDataset(TorchPDBDataset):
                             osp.join(self.root, "raw", "files"),
                             split=self.split_type
                             )
-        pass
-
-    def download_precomputed(self):
         pass
 
     def get_raw_files(self):

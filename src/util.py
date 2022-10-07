@@ -8,7 +8,7 @@ from tqdm import tqdm
 class Trainer():
 
     def __init__(self, model, optimizer, criterion, dataloader, path, verbose=True):
-        self.model = model.train().cuda()
+        self.model = model.cuda()
         self.optimizer = optimizer
         self.criterion = criterion
         self.dataloader = dataloader
@@ -18,6 +18,7 @@ class Trainer():
         os.makedirs(path, exist_ok=True)
 
     def train(self, epochs):
+        self.model.train()
         epoch_pbar = tqdm(range(epochs), desc='Epoch') if self.verbose else range(epochs)
         for epoch in epoch_pbar:
             batch_pbar = tqdm(self.dataloader, desc='Batch', leave=False) if self.verbose else self.dataloader
@@ -46,13 +47,14 @@ class Trainer():
 class Evaluator():
 
     def __init__(self, model, metric, dataloader, verbose=True):
-        self.model = model.eval().cuda()
+        self.model = model.cuda()
         self.metric = metric
         self.dataloader = dataloader
         self.verbose = verbose
         self.metrics = []
 
     def eval(self):
+        self.model.eval()
         batch_pbar = tqdm(self.dataloader, desc='Batch', leave=False) if self.verbose else self.dataloader
         for batch in batch_pbar:
             metric = self.eval_step(batch)

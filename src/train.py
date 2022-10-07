@@ -64,8 +64,8 @@ if args.task == 'PT': # pretraining
             return torch.nn.functional.cross_entropy(y_pred, y_true)
         def metric(batch, y_pred):
             coords, labels, masked, mask = batch
-            y_pred = y_pred[mask]
-            y_true = labels[mask].cuda()
+            y_pred = torch.argmax(y_pred[mask], -1)
+            y_true = torch.argmax(labels[mask], -1).cuda()
             return torch.sum(y_pred == y_true) / y_true.shape[0]
 
 elif args.task == 'EC':
@@ -109,7 +109,7 @@ if args.representation == 'point':
 
 #ds = torch.utils.data.Subset(ds, torch.arange(1000))
 
-optimizer = torch.optim.Adam(params=model.parameters(), lr=1e-4)
+optimizer = torch.optim.Adam(params=model.parameters(), lr=1e-5)
 train, test = train_test_split(ds)
 train = DataLoader(train, batch_size=args.batchsize)
 test = DataLoader(test, batch_size=args.batchsize)

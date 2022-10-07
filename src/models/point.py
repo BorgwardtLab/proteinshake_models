@@ -43,13 +43,13 @@ class PointNetBase(nn.Module):
         super().__init__()
         self.input_transform = Tnet(k=3)
         self.feature_transform = Tnet(k=64)
-        self.conv1 = nn.Conv1d(3,64,1)
+        self.conv1 = nn.Conv1d(3,64-20,1)
 
         self.conv2 = nn.Conv1d(64,128,1)
         self.conv3 = nn.Conv1d(128,1024,1)
 
 
-        self.bn1 = nn.BatchNorm1d(64)
+        self.bn1 = nn.BatchNorm1d(64-20)
         self.bn2 = nn.BatchNorm1d(128)
         self.bn3 = nn.BatchNorm1d(1024)
 
@@ -59,12 +59,14 @@ class PointNetBase(nn.Module):
     def load_weights(self, path):
         self.load_state_dict(torch.load(path))
 
-    def forward(self, input):
+    def forward(self, input, labels):
         matrix3x3 = self.input_transform(input)
         # batch matrix multiplication
         xb = torch.bmm(torch.transpose(input,1,2), matrix3x3).transpose(1,2)
 
         xb = F.relu(self.bn1(self.conv1(xb)))
+        
+        xb = torch.cat([xb,labels], dim=1)
 
         matrix64x64 = self.feature_transform(xb)
         xb = torch.bmm(torch.transpose(xb,1,2), matrix64x64).transpose(1,2)
@@ -105,7 +107,8 @@ class PointNet_Pretrain(PointNet):
     def forward(self, batch):
         coords, labels, masked, mask = batch
         coords = coords.permute(0,2,1)
-        x, matrix3x3, matrix64x64 = self.base(coords.cuda())
+        labels = labels.permute(0,2,1)
+        x, matrix3x3, matrix64x64 = self.base(coords.cuda(), labels.cuda())
         return self.output(x)
 
 
@@ -118,11 +121,11 @@ class PointNet_EC(PointNet):
             nn.Linear(1024, 7),
         )
 
-
     def forward(self, batch):
         coords, labels, ec = batch
         coords = coords.permute(0,2,1)
-        x, matrix3x3, matrix64x64 = self.base(coords.cuda())
+        labels = labels.permute(0,2,1)
+        x, matrix3x3, matrix64x64 = self.base(coords.cuda(), labels.cuda())
         x = nn.MaxPool1d(x.size(-1))(x)
         x = nn.Flatten(1)(x)
         return self.output(x)
