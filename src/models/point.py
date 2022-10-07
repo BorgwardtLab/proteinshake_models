@@ -114,18 +114,15 @@ class PointNet_EC(PointNet):
     def __init__(self, hidden_dim=128, kernel_size=3):
         super().__init__()
         classes = 7
-        self.fc1 = nn.Linear(1024, 512)
-        self.fc2 = nn.Linear(512, 256)
-        self.fc3 = nn.Linear(256, classes)
-        self.bn1 = nn.BatchNorm1d(512)
-        self.bn2 = nn.BatchNorm1d(256)
-        self.dropout = nn.Dropout(p=0.3)
-        self.logsoftmax = nn.LogSoftmax(dim=1)
+        self.output = nn.Sequential(
+            nn.Linear(1024, 7),
+        )
+
 
     def forward(self, batch):
-        coords, labels, masked, mask = batch
-        xb, matrix3x3, matrix64x64 = self.base(coords.cuda())
-        xb = F.relu(self.bn1(self.fc1(xb)))
-        xb = F.relu(self.bn2(self.dropout(self.fc2(xb))))
-        output = self.fc3(xb)
-        return self.logsoftmax(output)#, matrix3x3, matrix64x64
+        coords, labels, ec = batch
+        coords = coords.permute(0,2,1)
+        x, matrix3x3, matrix64x64 = self.base(coords.cuda())
+        x = nn.MaxPool1d(x.size(-1))(x)
+        x = nn.Flatten(1)(x)
+        return self.output(x)

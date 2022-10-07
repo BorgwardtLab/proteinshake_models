@@ -70,17 +70,33 @@ if args.task == 'PT': # pretraining
 
 elif args.task == 'EC':
     ds = EnzymeCommissionDataset(root='data/ec')
-    model = VoxelNet_EC()
-    def transform(data, labels):
-        return data, torch.eye(7)[int(labels['protein']['EC'].split('.')[0])-1].float()
-    def criterion(batch, y_pred):
-        data, label = batch
-        return torch.nn.functional.cross_entropy(y_pred, torch.argmax(label,-1).cuda())
-    def metric(batch, y_pred):
-        data, label = batch
-        y_pred = torch.argmax(y_pred,-1)
-        label = torch.argmax(label,-1).cuda()
-        return torch.sum(y_pred == label) / label.shape[0]
+    if args.representation == 'voxel':
+        model = VoxelNet_EC()
+        def transform(data, labels):
+            return data, torch.eye(7)[int(labels['protein']['EC'].split('.')[0])-1].float()
+        def criterion(batch, y_pred):
+            data, label = batch
+            return torch.nn.functional.cross_entropy(y_pred, torch.argmax(label,-1).cuda())
+        def metric(batch, y_pred):
+            data, label = batch
+            y_pred = torch.argmax(y_pred,-1)
+            label = torch.argmax(label,-1).cuda()
+            return torch.sum(y_pred == label) / label.shape[0]
+    elif args.representation == 'point':
+        model = PointNet_EC()
+        L = 1024
+        def transform(coords, labels, protein_dict):
+            coords = torch.nn.functional.pad(coords[:L], (0,0,0,max(0,L-coords.shape[0])))
+            labels = torch.nn.functional.pad(labels[:L], (0,0,0,max(0,L-labels.shape[0])))
+            return coords, labels, torch.eye(7)[int(protein_dict['protein']['EC'].split('.')[0])-1].float()
+        def criterion(batch, y_pred):
+            coords, labels, ec = batch
+            return torch.nn.functional.cross_entropy(y_pred, torch.argmax(ec,-1).cuda())
+        def metric(batch, y_pred):
+            coords, labels, ec = batch
+            y_pred = torch.argmax(y_pred,-1)
+            ec = torch.argmax(ec,-1).cuda()
+            return torch.sum(y_pred == ec) / ec.shape[0]
 
 if args.pretrained:
     print('Loading pretrained weights')
