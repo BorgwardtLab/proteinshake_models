@@ -3,7 +3,6 @@
 import os
 import os.path as osp
 
-import numpy as np
 from tqdm import tqdm
 from rdkit import Chem
 from rdkit.Chem import MACCSkeys
@@ -68,7 +67,7 @@ class Atom3DDataset(Dataset):
     def download_precomputed(self, resolution='residue'):
         """ Downloads the precomputed dataset from the ProteinShake repository.
         """
-        parsed_path = f'{self.root}/{self.__class__.__name__}.{resolution}.avro'
+        parsed_path = f'{self.root}/{self.__class__.__name__}_{self.atom_dataset}.{resolution}.avro'
         if not os.path.exists(parsed_path):
             print(">>> Did not find precomputed data, downloading and parsing.")
             self.start_download()
@@ -85,57 +84,71 @@ class Atom3DDataset(Dataset):
     def parse(self):
         protein_dfs = da.load_dataset(self.get_raw_files(), 'lmdb')
         proteins = []
-        pairs = []
-        skipped = 0
+        indices = []
+        i = 0
         for protein_raw_info in tqdm(protein_dfs):
-            df_res = protein_raw_info[COORDS_KEY[self.atom_dataset]].loc[protein_raw_info[COORDS_KEY[self.atom_dataset]]['name'] == 'CA']
-            df_res = df_res.loc[df_res['hetero'] == ' ']
-            df_atom = protein_raw_info[COORDS_KEY[self.atom_dataset]]
-            df_atom = df_atom.loc[df_atom['hetero'] == ' ']
             try:
-                seq = ''.join([three2one[r] for r in df_res['resname']])
-            except KeyError as e:
-                print(f">> Skipped {skipped} proteins of {len(protein_dfs)} with non-standard amino-acid {e}.")
-                skipped += 1
+                df_atom = protein_raw_info[COORDS_KEY[self.atom_dataset]]
+                df_atom = df_atom.loc[df_atom['hetero'] == ' ']
+
+                # remove non-standards
+                # df_atom = df_atom.loc[df_atom['resname'].isin(three2one)]
+
+                df_res = df_atom.loc[df_atom['name'] == 'CA']
+
+                protein = {
+                    'protein': {
+                        'ID': protein_raw_info['id'],
+                        'sequence': ''.join([three2one[r] for r in df_res['resname']]),
+                    },
+                    'residue': {
+                        'residue_number': df_res['residue'].tolist(),
+                        'residue_type': [three2one[r] for r in df_res['resname'].tolist()],
+                        'chain_id': df_res['chain'].tolist(),
+                        'x': df_res['x'].tolist(),
+                        'y': df_res['y'].tolist(),
+                        'z': df_res['z'].tolist(),
+                    },
+                    'atom': {
+                        'atom_number': df_atom.index.tolist(),
+                        'atom_type': df_atom['fullname'].tolist(),
+                        'residue_number': df_atom['residue'].tolist(),
+                        'residue_type': [three2one[r] for r in df_atom['resname'].tolist()],
+                        'x': df_atom['x'].tolist(),
+                        'y': df_atom['y'].tolist(),
+                        'z': df_atom['z'].tolist(),
+                    },
+                }
+                protein = self.add_protein_attributes(protein, protein_raw_info)
+            except Exception as e:
+                print(f">> Failed on protein {i} with exception {e}.")
                 continue
+            else:
+                proteins.append(protein)
+                indices.append(i)
+            finally:
+                i += 1
 
-            protein = {
-                'protein': {
-                    'ID': protein_raw_info['id'],
-                    'sequence': seq,
-                },
-                'residue': {
-                    'residue_number': df_res['residue'].tolist(),
-                    'residue_type': [three2one[r] for r in df_res['resname'].tolist()],
-                    'chain_id': df_res['chain'].tolist(),
-                    'x': df_res['x'].tolist(),
-                    'y': df_res['y'].tolist(),
-                    'z': df_res['z'].tolist(),
-                },
-                'atom': {
-                    'atom_number': df_atom.index.tolist(),
-                    'atom_type': df_atom['fullname'].tolist(),
-                    'residue_number': df_atom['residue'].tolist(),
-                    'residue_type': [three2one[r] for r in df_atom['resname'].tolist()],
-                    'x': df_atom['x'].tolist(),
-                    'y': df_atom['y'].tolist(),
-                    'z': df_atom['z'].tolist(),
-                },
-            }
-            protein = self.add_protein_attributes(protein, protein_raw_info)
-            proteins.append(protein)
-
-        residue_proteins = [{'protein':p['protein'], 'residue':p['residue']} for p in proteins]
-        atom_proteins = [{'protein':p['protein'], 'atom':p['atom']} for p in proteins]
         print(">>> Dumping")
-        write_avro(residue_proteins, f'{self.root}/{self.__class__.__name__}.residue.avro')
-        write_avro(atom_proteins, f'{self.root}/{self.__class__.__name__}.atom.avro')
+        residue_proteins = [{'protein':p['protein'], 'residue':p['residue']} for p in proteins]
+        write_avro(residue_proteins, f'{self.root}/{self.__class__.__name__}_{self.atom_dataset}.residue.avro')
+        del residue_proteins
+
+        atom_proteins = [{'protein':p['protein'], 'atom':p['atom']} for p in proteins]
+        write_avro(atom_proteins, f'{self.root}/{self.__class__.__name__}_{self.atom_dataset}.atom.avro')
+        del atom_proteins
+
+        with open(f"{self.root}/indices.txt", "w") as ns:
+            ns.write("\n".join(map(str, indices)))
         pass
 
     def add_protein_attributes(self, protein, protein_raw_info):
         
         if self.atom_dataset == 'psr':
             protein['protein']['rmsd'] = protein_raw_info['scores']['rmsd']
+            protein['protein']['gdt_ts'] = protein_raw_info['scores']['gdt_ts']
+            protein['protein']['gdt_ha'] = protein_raw_info['scores']['gdt_ha']
+
             protein['atom']['rmsd'] = protein_raw_info['scores']['rmsd']
             pass
         if self.atom_dataset == 'lba':
