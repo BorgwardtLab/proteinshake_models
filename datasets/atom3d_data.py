@@ -143,13 +143,13 @@ class Atom3DDataset(Dataset):
         pass
 
     def add_protein_attributes(self, protein, protein_raw_info):
-        
+
         if self.atom_dataset == 'psr':
             protein['protein']['rmsd'] = protein_raw_info['scores']['rmsd']
             protein['protein']['gdt_ts'] = protein_raw_info['scores']['gdt_ts']
             protein['protein']['gdt_ha'] = protein_raw_info['scores']['gdt_ha']
+            protein['protein']['tm'] = protein_raw_info['scores']['tm']
 
-            protein['atom']['rmsd'] = protein_raw_info['scores']['rmsd']
             pass
         if self.atom_dataset == 'lba':
             mol = Chem.MolFromSmiles(protein_raw_info['smiles'])
@@ -161,10 +161,6 @@ class Atom3DDataset(Dataset):
             protein['protein']['fp_maccs'] = fp_maccs
             protein['protein']['fp_morgan_r2'] = fp_morgan
 
-            protein['atom']['smiles'] = protein_raw_info['smiles']
-            protein['atom']['affinity'] = protein_raw_info['scores']['neglog_aff']
-            protein['atom']['fp_maccs'] = fp_maccs
-            protein['atom']['fp_morgan_r2'] = fp_morgan
             pass
         if self.atom_dataset == 'ppi':
             pass
