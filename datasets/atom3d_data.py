@@ -68,12 +68,17 @@ class Atom3DDataset(Dataset):
     def download_precomputed(self, resolution='residue'):
         """ Downloads the precomputed dataset from the ProteinShake repository.
         """
+        loaded_path = f'{self.root}/{self.__class__.__name__}.{resolution}.avro'
         parsed_path = f'{self.root}/{self.__class__.__name__}_{self.atom_dataset}.{resolution}.avro'
-        if not os.path.exists(parsed_path):
+        if os.path.exists(loaded_path):
+            return
+
+        else:
             print(">>> Did not find precomputed data, downloading and parsing.")
             self.start_download()
             print(">>> Parsing")
             self.parse()
+            os.rename(parsed_path, loaded_path)
         pass
 
     def get_raw_files(self):
