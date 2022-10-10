@@ -3,6 +3,7 @@
 import os
 import os.path as osp
 
+import pandas as pd
 from tqdm import tqdm
 from rdkit import Chem
 from rdkit.Chem import MACCSkeys
@@ -32,9 +33,9 @@ SPLIT_TYPES = {'lba': ['sequence-identity-30', 'sequence-identity-60'],
                'psr': ['year']
                }
 
-COORDS_KEY = {'lba': 'atoms_protein',
-              'psr': 'atoms',
-              'ppi': 'atoms_pairs',
+COORDS_KEY = {'lba': ('atoms_protein'),
+              'psr': ('atoms'),
+              'ppi': ('atoms_pairs'),
               'msp': ('original_atoms', 'mutated_atoms')
               }
 
@@ -87,19 +88,32 @@ class Atom3DDataset(Dataset):
         indices = []
         i = 0
         for protein_raw_info in tqdm(protein_dfs):
+            if i > 10:
+                break
             try:
-                df_atom = protein_raw_info[COORDS_KEY[self.atom_dataset]]
-                df_atom = df_atom.loc[df_atom['hetero'] == ' ']
+                dfs_atom, dfs_res, lengths_atom, lengths_res  = [], [], [], []
+                atom_keys = COORDS_KEY[self.atom_dataset]
+                for k in atom_keys:
+                    df_atom = protein_raw_info[k]
+                    df_atom = df_atom.loc[df_atom['hetero'] == ' ']
+                    df_res = df_atom.loc[df_atom['name'] == 'CA']
+                    dfs_atom.append(df_atom)
+                    dfs_res.append(df_res)
+                    lengths_atom.append(len(df_atom))
+                    lengths_res.append(len(df_res))
 
+                df_atom = pd.concat(dfs_atom)
+                df_res= pd.concat(dfs_res)
                 # remove non-standards
                 # df_atom = df_atom.loc[df_atom['resname'].isin(three2one)]
-
-                df_res = df_atom.loc[df_atom['name'] == 'CA']
 
                 protein = {
                     'protein': {
                         'ID': protein_raw_info['id'],
                         'sequence': ''.join([three2one[r] for r in df_res['resname']]),
+                        'group_lengths_atom': lengths_atom,
+                        'group_lengths_res': lengths_res,
+                        'df_keys': ','.join(atom_keys)
                     },
                     'residue': {
                         'residue_number': df_res['residue'].tolist(),
@@ -170,16 +184,12 @@ class Atom3DDataset(Dataset):
             # id: '1A22_A_B_EA66A'
             mutation = protein_raw_info['id'].split('_')[-1]
             chain, res = mutation[1], int(mutation[2:-1])
-            orig_idx = self._extract_mut_idx(orig_df, mutation)
-            mut_idx = self._extract_mut_idx(mut_df, mutation)
+            protein['protein']['mutation_chain'] = chain
+            protein['protein']['mutation_res'] = res
             pass
 
         return protein
 
-    def _extract_mut_idx(self, df, mutation):
-        chain, res = mutation[1], int(mutation[2:-1])
-        idx = df.index[(df.chain.values == chain) & (df.residue.values == res)].values
-        return idx
 
 if __name__ == "__main__":
     dataset = Atom3DDataset('lba', root='lba', use_precomputed=False)
