@@ -22,7 +22,8 @@ ATOM_DATASETS = {'lba', 'smp', 'ppi', 'res', 'msp', 'lep', 'psr'}
 FOLDERS = {'lba': 'pdbbind_2019-refined-set',
            'psr': 'casp5_to_13',
            'ppi': 'DIPS',
-           'msp': 'MSP'
+           'msp': 'MSP',
+           'res': 'RES'
            }
 
 SPLIT_TYPES = {'lba': ['sequence-identity-30', 'sequence-identity-60'],
@@ -33,10 +34,11 @@ SPLIT_TYPES = {'lba': ['sequence-identity-30', 'sequence-identity-60'],
                'psr': ['year']
                }
 
-COORDS_KEY = {'lba': ('atoms_protein'),
-              'psr': ('atoms'),
-              'ppi': ('atoms_pairs'),
-              'msp': ('original_atoms', 'mutated_atoms')
+COORDS_KEY = {'lba': ['atoms_protein'],
+              'psr': ['atoms'],
+              'ppi': ['atoms_pairs'],
+              'msp': ['original_atoms', 'mutated_atoms'],
+              'res': ['atoms']
               }
 
 class Atom3DDataset(Dataset):
@@ -93,7 +95,7 @@ class Atom3DDataset(Dataset):
         indices = []
         i = 0
         for protein_raw_info in tqdm(protein_dfs):
-            if i > 10:
+            if i > 100:
                 break
             try:
                 dfs_atom, dfs_res, lengths_atom, lengths_res  = [], [], [], []
@@ -191,6 +193,10 @@ class Atom3DDataset(Dataset):
             chain, res = mutation[1], int(mutation[2:-1])
             protein['protein']['mutation_chain'] = chain
             protein['protein']['mutation_res'] = res
+            pass
+        if self.atom_dataset == 'res':
+            protein['protein']['labels'] = protein_raw_info['labels']
+            protein['protein']['subunit_indices'] = protein_raw_info['subunit_indices']
             pass
 
         return protein
