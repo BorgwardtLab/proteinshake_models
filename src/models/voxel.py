@@ -3,14 +3,14 @@ import torch.nn as nn
 
 class VoxelNetBase(nn.Module):
 
-    def __init__(self, input_dim=20, hidden_dim=128, num_layers=2, kernel_size=3, dropout=0.2):
+    def __init__(self, input_dim=20, hidden_dim=128, num_layers=1, kernel_size=3, dropout=0.2):
         super().__init__()
         def block(n):
             i = input_dim if n == 0 else hidden_dim
             #o = output_dim if n == num_layers-1 else hidden_dim
             return nn.Sequential(
                 nn.Conv3d(in_channels=i, out_channels=hidden_dim, kernel_size=kernel_size, stride=1, padding='same'),
-                nn.BatchNorm3d(hidden_dim),
+                #nn.BatchNorm3d(hidden_dim),
                 nn.ReLU(),
                 nn.Dropout(dropout)
             )
@@ -57,6 +57,29 @@ class VoxelNet_Pretrain(VoxelNet):
         x = self.base(masked.cuda())
         return self.output(x).permute(0,2,3,4,1)
 
+    def transform(self, data, labels):
+        nonzero = ~((data == 0).all(-1))
+        volume = nonzero.sum()
+        n, m = int(volume * 0.15), volume-int(volume * 0.15)
+        mask = torch.zeros(data.shape[:-1]).bool()
+        inner_mask = torch.cat([torch.ones(n),torch.zeros(m)])[torch.randperm(volume)].bool()
+        mask[nonzero] = inner_mask
+        masked = data.clone()
+        masked[mask] = 1
+        return data, masked, mask
+
+    def criterion(self, batch, y_pred):
+        data, masked, mask = batch
+        y_pred = y_pred[mask]
+        y_true = data[mask].cuda()
+        return torch.nn.functional.mse_loss(y_pred, y_true)
+
+    def metric(self, batch, y_pred):
+        data, masked, mask = batch
+        y_pred = y_pred[mask]
+        y_true = data[mask].cuda()
+        return torch.nn.functional.l1_loss(y_pred,y_true)
+
 
 class VoxelNet_EC(VoxelNet):
 
@@ -75,3 +98,16 @@ class VoxelNet_EC(VoxelNet):
         x = self.base(data.cuda())
         x = torch.amax(self.layer(x).permute(0,2,3,4,1), dim=(1,2,3))
         return self.output(x)
+
+    def transform(self, data, labels):
+        return data, torch.eye(7)[int(labels['protein']['EC'].split('.')[0])-1].float()
+
+    def criterion(self, batch, y_pred):
+        data, label = batch
+        return torch.nn.functional.cross_entropy(y_pred, torch.argmax(label,-1).cuda())
+
+    def metric(self, batch, y_pred):
+        data, label = batch
+        y_pred = torch.argmax(y_pred,-1)
+        label = torch.argmax(label,-1).cuda()
+        return torch.sum(y_pred == label) / label.shape[0]
