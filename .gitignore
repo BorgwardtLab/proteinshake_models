@@ -9,6 +9,7 @@ logs*
 __pycache__/
 *.py[cod]
 *$py.class
+results/
 
 # cython files
 *.pyc

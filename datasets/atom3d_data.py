@@ -11,6 +11,7 @@ from rdkit.Chem import AllChem
 
 from proteinshake.datasets import Dataset
 from proteinshake.utils import save, load, write_avro, unzip_file
+
 import atom3d.datasets.datasets as da
 
 three2one = {'ALA': 'A', 'CYS': 'C', 'ASP': 'D', 'GLU': 'E', 'PHE': 'F', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I', 'LYS': 'K', 'LEU': 'L', 'MET': 'M', 'ASN': 'N', 'PRO': 'P', 'GLN': 'Q', 'ARG': 'R', 'SER': 'S', 'THR': 'T', 'VAL': 'V', 'TRP': 'W', 'TYR': 'Y'}
