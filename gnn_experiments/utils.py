@@ -1,11 +1,26 @@
 import math
 import torch
+from torch_geometric.data import Data
 
 
 class OneHotToIndex(object):
     def __call__(self, data):
         data.x = data.x.argmax(dim=-1)
         return data
+
+class ResidueIdx(object):
+    def __call__(self, data):
+        data.residue_idx = torch.arange(data.num_nodes)
+        return data
+
+class UsedAttr(object):
+    def __call__(self, data):
+        new_data = Data()
+        new_data.x = data.x
+        new_data.residue_idx = data.residue_number - 1
+        new_data.edge_index = data.edge_index
+        new_data.edge_attr = data.edge_attr
+        return new_data
 
 class MaskNode(object):
     def __init__(self, num_node_types, mask_rate=0.15):
