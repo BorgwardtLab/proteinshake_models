@@ -10,6 +10,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 results/
+debug.py
+.proteinshake/
 
 # cython files
 *.pyc

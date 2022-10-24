@@ -1,15 +1,18 @@
-import numpy as np
-from proteinshake.datasets import AlphaFoldDataset
-from tqdm import tqdm
-ds = AlphaFoldDataset(root='data/af', organism='swissprot')
+from proteinshake.datasets import EnzymeCommissionDataset
+from scripts.get_training_info import *
 
-voxelsize = 10
-resolution = 'residue'
-proteins, size = ds.proteins()
-gridsize = np.array([[
-    np.ptp(protein[resolution]['x']),
-    np.ptp(protein[resolution]['y']),
-    np.ptp(protein[resolution]['z'])
-    ] for protein in tqdm(proteins, total=size)]).max(0)
-gridsize = np.ceil(gridsize/voxelsize).astype(int)
-print(gridsize)
+# keep the original dataset and the pyg version separate
+d = EnzymeCommissionDataset(root='data/test_carlos')
+d_pyg = d.to_point().torch()
+
+# load a dictionary with attributes for each task. e.g. num_classes, task_type
+# these can be used for constructing the model
+task_dict = get_task_info(d)
+
+# for a pyg dataset, adds a .y attribute with the target
+#set_y_pyg(d_pyg, d)
+# returns a callable which takes model output as info and g.y
+evaluator = get_evaluator(d)
+# returns 3 lists of indices deterministically (train, val, test)
+splits = get_splits(d)
+print(splits)
