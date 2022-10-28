@@ -45,8 +45,9 @@ class VoxelNet(nn.Module):
 
 class VoxelNet_Pretrain(VoxelNet):
 
-    def __init__(self, hidden_dim=128, kernel_size=3):
+    def __init__(self, task, hidden_dim=128, kernel_size=3):
         super().__init__()
+        self.task = task
         self.output = nn.Sequential(
             nn.Conv3d(in_channels=hidden_dim, out_channels=20, kernel_size=kernel_size, stride=1, padding='same'),
             nn.Sigmoid()
@@ -57,7 +58,7 @@ class VoxelNet_Pretrain(VoxelNet):
         x = self.base(masked.cuda())
         return self.output(x).permute(0,2,3,4,1)
 
-    def transform(self, data, labels):
+    def transform(self, data, protein_dict):
         nonzero = ~((data == 0).all(-1))
         volume = nonzero.sum()
         n, m = int(volume * 0.15), volume-int(volume * 0.15)
@@ -72,25 +73,31 @@ class VoxelNet_Pretrain(VoxelNet):
         data, masked, mask = batch
         y_pred = y_pred[mask]
         y_true = data[mask].cuda()
-        return torch.nn.functional.mse_loss(y_pred, y_true)
+        #return torch.nn.functional.mse_loss(y_pred, y_true)
+        return torch.nn.functional.cross_entropy(y_pred, torch.argmax(y_true,-1).cuda())
 
-    def metric(self, batch, y_pred):
+    def predict(self, batch):
+        y_pred = self.forward(batch)
         data, masked, mask = batch
         y_pred = y_pred[mask]
         y_true = data[mask].cuda()
-        return torch.nn.functional.l1_loss(y_pred,y_true)
+        #return torch.nn.functional.l1_loss(y_pred,y_true)
+        y_pred = torch.argmax(y_pred,-1)
+        y_true = torch.argmax(y_true,-1)
+        return y_true, y_pred
 
 
 class VoxelNet_EC(VoxelNet):
 
-    def __init__(self, hidden_dim=128, kernel_size=3):
+    def __init__(self, task, hidden_dim=128, kernel_size=3):
         super().__init__()
+        self.task = task
         self.layer = nn.Sequential(
             nn.Conv3d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=kernel_size, stride=1, padding='same'),
             nn.ReLU()
         )
         self.output = nn.Sequential(
-            nn.Linear(hidden_dim, 7),
+            nn.Linear(hidden_dim, self.task.num_classes),
         )
 
     def forward(self, batch):
@@ -99,15 +106,47 @@ class VoxelNet_EC(VoxelNet):
         x = torch.amax(self.layer(x).permute(0,2,3,4,1), dim=(1,2,3))
         return self.output(x)
 
-    def transform(self, data, labels):
-        return data, torch.eye(7)[int(labels['protein']['EC'].split('.')[0])-1].float()
+    def transform(self, data, protein_dict):
+        return data, torch.eye(self.task.num_classes)[self.task.target(protein_dict)].float()
 
     def criterion(self, batch, y_pred):
         data, label = batch
         return torch.nn.functional.cross_entropy(y_pred, torch.argmax(label,-1).cuda())
 
-    def metric(self, batch, y_pred):
+    def predict(self, batch):
+        y_pred = self.forward(batch)
         data, label = batch
-        y_pred = torch.argmax(y_pred,-1)
-        label = torch.argmax(label,-1).cuda()
-        return torch.sum(y_pred == label) / label.shape[0]
+        y_pred = torch.argmax(y_pred,-1).cpu()
+        y_true = torch.argmax(label,-1)
+        return y_true, y_pred
+
+class VoxelNet_LA(VoxelNet):
+
+    def __init__(self, task, hidden_dim=128, kernel_size=3):
+        super().__init__()
+        self.task = task
+        self.layer = nn.Sequential(
+            nn.Conv3d(in_channels=hidden_dim, out_channels=hidden_dim, kernel_size=kernel_size, stride=1, padding='same'),
+            nn.ReLU()
+        )
+        self.output = nn.Sequential(
+            nn.Linear(hidden_dim, 1),
+        )
+
+    def forward(self, batch):
+        data, label = batch
+        x = self.base(data.cuda())
+        x = torch.amax(self.layer(x).permute(0,2,3,4,1), dim=(1,2,3))
+        return self.output(x)
+
+    def transform(self, data, protein_dict):
+        return data, torch.tensor(self.task.target(protein_dict)).float()
+
+    def criterion(self, batch, y_pred):
+        data, label = batch
+        return torch.nn.functional.mse_loss(y_pred.squeeze(-1), label.cuda())
+
+    def predict(self, batch):
+        y_pred = self.forward(batch)
+        data, y_true = batch
+        return y_true, y_pred.squeeze(-1)

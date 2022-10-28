@@ -7,10 +7,10 @@ from tqdm import tqdm
 
 class Trainer():
 
-    def __init__(self, model, optimizer, criterion, dataloader, path, verbose=True):
+    def __init__(self, model, optimizer, dataloader, path, verbose=True):
         self.model = model.cuda()
         self.optimizer = optimizer
-        self.criterion = criterion
+        self.criterion = model.criterion
         self.dataloader = dataloader
         self.path = path
         self.verbose = verbose
@@ -46,25 +46,22 @@ class Trainer():
 
 class Evaluator():
 
-    def __init__(self, model, metric, dataloader, verbose=True):
+    def __init__(self, model, dataloader, verbose=True):
         self.model = model.cuda()
-        self.metric = metric
         self.dataloader = dataloader
         self.verbose = verbose
-        self.metrics = []
 
     def eval(self):
         self.model.eval()
         batch_pbar = tqdm(self.dataloader, desc='Batch', leave=False) if self.verbose else self.dataloader
+        y_true, y_pred = [],[]
         for batch in batch_pbar:
-            metric = self.eval_step(batch)
-            self.metrics.append(metric)
-        print(np.mean(self.metrics))
-
-    def eval_step(self, batch):
-        output = self.model(batch)
-        m = self.metric(batch, output)
-        return float(m)
+            _y_true, _y_pred = self.model.predict(batch)
+            y_true.extend(_y_true.cpu().detach())
+            y_pred.extend(_y_pred.cpu().detach())
+        metrics = self.model.task.evaluate(y_true, y_pred)
+        print(metrics)
+        return {k:float(v) for k,v in metrics.items()}
 
 
 def train_test_split(ds):
