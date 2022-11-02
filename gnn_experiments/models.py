@@ -181,7 +181,7 @@ class GNN_nodepred(nn.Module):
             )
 
     def from_pretrained(self, model_path):
-        self.gnn.load_state_dict(torch.load(model_path))
+        self.encoder.load_state_dict(torch.load(model_path)['state_dict'])
 
     def forward(self, data):
         bsz = len(data.ptr) - 1
@@ -216,7 +216,7 @@ class GNN_graphpred(nn.Module):
             )
 
     def from_pretrained(self, model_path):
-        self.gnn.load_state_dict(torch.load(model_path))
+        self.encoder.load_state_dict(torch.load(model_path)['state_dict'])
 
     def forward(self, data):
         bsz = len(data.ptr) - 1
@@ -224,3 +224,9 @@ class GNN_graphpred(nn.Module):
 
         output = self.pooling(output, data.batch)
         return self.classifier(output)
+
+    def save(self, model_path, args):
+        torch.save(
+            {'args': args, 'state_dict': self.state_dict()},
+            model_path
+        )
