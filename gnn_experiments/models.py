@@ -201,8 +201,8 @@ class GNN_graphpred(nn.Module):
             self.pooling = gnn.global_mean_pool
         elif global_pool == 'add':
             self.pooling = gnn.global_add_pool
-        elif global_pool == 'cls':
-            self.pooling = None
+        elif global_pool == 'max':
+            self.pooling = gnn.global_max_pool
 
         if out_head == 'linear':
             self.classifier = nn.Linear(embed_dim, num_class)
