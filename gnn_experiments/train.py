@@ -146,7 +146,7 @@ class GNNPredictor(pl.LightningModule):
     def evaluate_epoch_end(self, outputs, stage='val'):
         all_preds = torch.vstack([out['y_pred'] for out in outputs])
         all_true = torch.cat([out['y_true'] for out in outputs])
-        scores = compute_metrics(all_true.numpy(), all_preds.numpy())
+        scores = compute_metrics(all_true.cpu().numpy(), all_preds.cpu().numpy())
         scores = {'{}_'.format(stage) + str(key): val for key, val in scores.items()}
         if stage == 'val':
             self.log_dict(scores)
@@ -204,11 +204,18 @@ def main():
     else:
         raise ValueError("not implemented!")
 
-    train_loader = DataLoader(Subset(dset, task.train_ind), batch_size=args.batch_size,
+    protein_len_list = np.asarray([data.num_nodes for data in dset])
+    print("protein length less or equal to 3000 is {}%".format(
+        np.sum(protein_len_list <= 3000) / len(protein_len_list) * 100))
+    train_mask = protein_len_list[task.train_ind] <= 3000
+    val_mask = protein_len_list[task.val_ind] <= 3000
+    test_mask = protein_len_list[task.test_ind] <= 3000
+
+    train_loader = DataLoader(Subset(dset, np.asarray(task.train_ind)[train_mask]), batch_size=args.batch_size,
                               shuffle=True, num_workers=args.num_workers)
-    val_loader = DataLoader(Subset(dset, task.val_ind), batch_size=args.batch_size,
+    val_loader = DataLoader(Subset(dset, np.asarray(task.val_ind)[val_mask]), batch_size=args.batch_size,
                               shuffle=False, num_workers=args.num_workers)
-    test_loader = DataLoader(Subset(dset, task.test_ind), batch_size=args.batch_size,
+    test_loader = DataLoader(Subset(dset, np.asarray(task.test_ind)[test_mask]), batch_size=args.batch_size,
                               shuffle=False, num_workers=args.num_workers)
 
     encoder = GNN_graphpred(
