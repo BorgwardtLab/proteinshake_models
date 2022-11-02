@@ -178,6 +178,7 @@ class GNNPredictor(pl.LightningModule):
 
     def plot(self):
         import matplotlib.pyplot as plt
+        plt.switch_backend("agg")
         import seaborn as sns
         metrics = pd.read_csv(f"{self.logger.log_dir}/metrics.csv")
         del metrics["step"]
