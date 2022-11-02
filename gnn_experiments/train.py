@@ -1,6 +1,7 @@
 import os
 import argparse
 import random
+import copy
 import numpy as np
 import itertools
 import pandas as pd
@@ -124,6 +125,8 @@ class GNNPredictor(pl.LightningModule):
             self.criterion = nn.MSELoss()
         else:
             raise ValueError("unknown taks type!")
+        self.best_val_acc = 0.0
+        self.best_weights = None
 
     def training_step(self, batch, batch_idx):
         y_hat = self.model(batch)
@@ -153,7 +156,11 @@ class GNNPredictor(pl.LightningModule):
         return scores
 
     def validation_epoch_end(self, outputs):
-        return self.evaluate_epoch_end(outputs, 'val')
+        scores = self.evaluate_epoch_end(outputs, 'val')
+        if scores['val_acc'] >= self.best_val_acc:
+            self.best_val_acc = scores['val_acc']
+            self.best_weights = copy.deepcopy(self.model.state_dict())
+        return scores
 
     def test_step(self, batch, batch_idx):
         y_hat = self.model(batch)
@@ -257,6 +264,8 @@ def main():
     )
 
     trainer.fit(model, train_loader, val_loader)
+    model.model.load_state_dict(model.best_weights)
+    model.best_weights = None
     trainer.test(model, test_loader)
     model.plot()
     if args.save_logs:
