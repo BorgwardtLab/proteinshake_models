@@ -189,9 +189,38 @@ class GNN_nodepred(nn.Module):
         return self.classifier(output)
 
 
+class Aggregator(nn.Module):
+    def __init__(self, embed_dim=256, aggregation='concat'):
+        super().__init__()
+        self.aggregation = aggregation
+
+        if aggregation == 'concat':
+            self.aggregator = nn.Sequential(
+                nn.Linear(2 * embed_dim, embed_dim),
+                nn.ReLU(True),
+                nn.Linear(embed_dim, embed_dim)
+            )
+        elif aggregation == 'dot' or aggregation == 'sum':
+            self.aggregator = nn.Sequential(
+                nn.Linear(embed_dim, embed_dim),
+                nn.ReLU(True),
+                nn.Linear(embed_dim, embed_dim)
+            )
+
+    def forward(self, x1, x2):
+        if self.aggregation == 'concat':
+            x = torch.cat((x1, x2), dim=-1)
+        elif self.aggregation == 'dot':
+            x = x1 * x2
+        elif self.aggregation == 'sum':
+            x = x1 + x2
+        return self.aggregator(x)
+
+
 class GNN_graphpred(nn.Module):
     def __init__(self, num_class, embed_dim=256, num_layers=3, dropout=0.0, gnn_type='gin',
-                 use_edge_attr=False, pe=None, global_pool='mean', out_head='mlp'):
+                 use_edge_attr=False, pe=None, global_pool='mean', out_head='mlp',
+                 pair_prediction=False, same_type=False, other_dim=1024, aggregation='dot'):
         super().__init__()
 
         self.encoder = GNN(embed_dim, num_layers, dropout, gnn_type, use_edge_attr, pe)
@@ -203,6 +232,19 @@ class GNN_graphpred(nn.Module):
             self.pooling = gnn.global_add_pool
         elif global_pool == 'max':
             self.pooling = gnn.global_max_pool
+
+        self.pair_prediction = pair_prediction
+        self.same_type = same_type
+        self.aggregation = aggregation
+        if pair_prediction:
+            if not same_type:
+                self.other_encoder = nn.Sequential(
+                    nn.Linear(other_dim, embed_dim),
+                    nn.ReLU(True),
+                    nn.Linear(embed_dim, embed_dim)
+                )
+            self.aggregator = Aggregator(embed_dim, aggregation)
+
 
         if out_head == 'linear':
             self.classifier = nn.Linear(embed_dim, num_class)
@@ -217,12 +259,22 @@ class GNN_graphpred(nn.Module):
 
     def from_pretrained(self, model_path):
         self.encoder.load_state_dict(torch.load(model_path)['state_dict'])
+        print(f"Model loaded from {model_path}")
 
-    def forward(self, data):
+    def forward(self, data, other_data=None):
         bsz = len(data.ptr) - 1
         output = self.encoder(data)
-
         output = self.pooling(output, data.batch)
+
+        if self.pair_prediction:
+            assert other_data is not None, "other_data should be provided!"
+            if self.same_type:
+                other_output = self.encoder(other_data)
+                other_output = self.pooling(other_output, other_data.batch)
+            else:
+                other_output = self.other_encoder(other_data)
+            output = self.aggregator(output, other_output)
+
         return self.classifier(output)
 
     def save(self, model_path, args):

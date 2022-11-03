@@ -49,7 +49,7 @@ def load_args():
                         help='gnn type')
     parser.add_argument('--use-edge-attr', action='store_true', help='use edge features')
     parser.add_argument('--pooling', type=str, default='mean', help='global pooling')
-    parser.add_argument('--pe', type=str, default=None, choices=['learned', 'sine'])
+    parser.add_argument('--pe', type=str, default=None, choices=['None', 'learned', 'sine'])
     parser.add_argument('--out-head', type=str, default='linear', choices=['linear', 'mlp'])
     parser.add_argument('--pretrained', type=str, default=None, help='pretrained model path')
 
@@ -67,6 +67,8 @@ def load_args():
     parser.add_argument('--num-workers', type=int, default=0,
                         help='number of workers for loader')
     args = parser.parse_args()
+
+    args.pe = None if args.pe == 'None' else args.pe
 
     if args.debug:
         args.epochs = 10
@@ -101,16 +103,27 @@ def load_args():
     return args
 
 class AttrParser(object):
-    def __init__(self, task):
+    def __init__(self, task, y_transform=None):
         self.task = task
+        self.y_transform = y_transform
 
-    def __call__(self, data, protein_dict):
+    def __call__(self, data):
+        data, protein_dict = data
         new_data = Data()
         new_data.x = data.x
         new_data.residue_idx = torch.arange(data.num_nodes)
         new_data.edge_index = data.edge_index
         new_data.edge_attr = data.edge_attr
         new_data.y = self.task.target(protein_dict)
+        if self.task.task_type == 'regression':
+            new_data.y = torch.tensor(new_data.y).view(-1, 1)
+            if self.y_transform is not None:
+                new_data.y = torch.from_numpy(self.y_transform.transform(
+                    new_data.y).astype('float32'))
+        if isinstance(self.task, ps_tasks.LigandAffinityTask):
+            fp_maccs = torch.tensor(protein_dict['protein']['fp_maccs']).view(1, -1)
+            fp_morgan_r2 = torch.tensor(protein_dict['protein']['fp_morgan_r2']).view(1, -1)
+            new_data.other_x = torch.cat((fp_maccs, fp_morgan_r2), dim=-1).float()
         return new_data
 
 class GNNPredictor(pl.LightningModule):
@@ -119,28 +132,34 @@ class GNNPredictor(pl.LightningModule):
         self.model = model
         self.args = args
         self.task = task
-        if args.task_type == 'classification':
+        if task.task_type == 'classification, multi-class':
+            self.main_metric = 'acc'
             self.criterion = nn.CrossEntropyLoss()
-        elif args.task_type == 'regression':
+            self.best_val_score = 0.0
+        elif task.task_type == 'regression':
+            self.main_metric = 'neg_mse'
             self.criterion = nn.MSELoss()
+            self.best_val_score = -float('inf')
         else:
-            raise ValueError("unknown taks type!")
-        self.best_val_acc = 0.0
+            raise ValueError("Unknown taks type!")
+        self.main_val_metric = 'val_' + self.main_metric
         self.best_weights = None
 
     def training_step(self, batch, batch_idx):
-        y_hat = self.model(batch)
-
+        other_x = batch.other_x if hasattr(batch, 'other_x') else None
+        y_hat = self.model(batch, other_x)
         loss = self.criterion(y_hat, batch.y)
 
-        acc = (y_hat.detach().argmax(dim=-1) == batch.y).float().mean().item()
-        self.log("train_acc", acc, on_step=False, on_epoch=True, batch_size=1, prog_bar=True)
+        if 'classification' in self.task.task_type:
+            acc = (y_hat.detach().argmax(dim=-1) == batch.y).float().mean().item()
+            self.log("train_acc", acc, on_step=False, on_epoch=True, batch_size=1, prog_bar=True)
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1)
 
         return loss
 
     def validation_step(self, batch, batch_idx):
-        y_hat = self.model(batch)
+        other_x = batch.other_x if hasattr(batch, 'other_x') else None
+        y_hat = self.model(batch, other_x)
         loss = self.criterion(y_hat, batch.y)
 
         self.log('val_loss', loss, batch_size=len(batch.y))
@@ -149,7 +168,7 @@ class GNNPredictor(pl.LightningModule):
     def evaluate_epoch_end(self, outputs, stage='val'):
         all_preds = torch.vstack([out['y_pred'] for out in outputs])
         all_true = torch.cat([out['y_true'] for out in outputs])
-        scores = compute_metrics(all_true.cpu().numpy(), all_preds.cpu().numpy())
+        scores = compute_metrics(all_true.cpu().numpy(), all_preds.cpu().numpy(), self.task.task_type)
         scores = {'{}_'.format(stage) + str(key): val for key, val in scores.items()}
         if stage == 'val':
             self.log_dict(scores)
@@ -157,13 +176,14 @@ class GNNPredictor(pl.LightningModule):
 
     def validation_epoch_end(self, outputs):
         scores = self.evaluate_epoch_end(outputs, 'val')
-        if scores['val_acc'] >= self.best_val_acc:
-            self.best_val_acc = scores['val_acc']
+        if scores[self.main_val_metric] >= self.best_val_score:
+            self.best_val_score = scores[self.main_val_metric]
             self.best_weights = copy.deepcopy(self.model.state_dict())
         return scores
 
     def test_step(self, batch, batch_idx):
-        y_hat = self.model(batch)
+        other_x = batch.other_x if hasattr(batch, 'other_x') else None
+        y_hat = self.model(batch, other_x)
         loss = self.criterion(y_hat, batch.y)
         return {'y_pred': y_hat, 'y_true': batch.y}
 
@@ -190,7 +210,11 @@ class GNNPredictor(pl.LightningModule):
         metrics = pd.read_csv(f"{self.logger.log_dir}/metrics.csv")
         del metrics["step"]
         metrics.set_index("epoch", inplace=True)
-        metrics = metrics[['val_acc', 'val_loss', 'train_acc', 'train_loss']]
+        if 'classification' in self.task.task_type:
+            metric_list = ['val_acc', 'val_loss', 'train_acc', 'train_loss']
+        elif 'regression' in self.task.task_type:
+            metric_list = ['val_mse', 'val_loss', 'train_loss']
+        metrics = metrics[metric_list]
         sns.relplot(data=metrics, kind="line")
         plt.savefig(self.logger.log_dir + '/plot.png')
         plt.close()
@@ -201,13 +225,29 @@ def main():
     print(args)
 
     datapath = "../data/{}".format(args.dataset)
+    args.pair_prediction = False
+    args.same_type = False
+    args.other_dim = None
     if args.dataset == 'ec':
         task = ps_tasks.EnzymeCommissionTask(root=datapath)
         dset = task.dataset.to_graph(eps=args.graph_eps).pyg(
             transform=AttrParser(task)
         )
         num_class = task.num_classes
-        args.task_type = 'classification'
+    elif args.dataset == 'ligand_affinity':
+        task = ps_tasks.LigandAffinityTask(root=datapath)
+        dset = task.dataset.to_graph(eps=args.graph_eps).pyg(
+            transform=AttrParser(task)
+        )
+        num_class = 1
+        args.pair_prediction = True
+        args.same_type = False
+        args.other_dim = dset[0].other_x.shape[-1]
+        # normalize y
+        from sklearn.preprocessing import StandardScaler
+        all_y = np.asarray([data.y.item() for data in dset])
+        scaler = StandardScaler().fit(all_y.reshape(-1, 1))
+        dset.transform = AttrParser(task, scaler)
     else:
         raise ValueError("not implemented!")
 
@@ -234,7 +274,10 @@ def main():
         args.use_edge_attr,
         args.pe,
         args.pooling,
-        args.out_head
+        args.out_head,
+        args.pair_prediction,
+        args.same_type,
+        args.other_dim
     )
 
     if args.pretrained is not None:

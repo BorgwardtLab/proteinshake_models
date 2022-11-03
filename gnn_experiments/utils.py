@@ -15,9 +15,10 @@ class ResidueIdx(object):
 
 class UsedAttr(object):
     def __call__(self, data):
+        data, _ = data
         new_data = Data()
         new_data.x = data.x
-        new_data.residue_idx = data.residue_number - 1
+        new_data.residue_idx = torch.arange(data.num_nodes)#data.residue_number - 1
         new_data.edge_index = data.edge_index
         new_data.edge_attr = data.edge_attr
         return new_data
