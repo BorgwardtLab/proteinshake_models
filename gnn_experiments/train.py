@@ -52,6 +52,7 @@ def load_args():
     parser.add_argument('--pe', type=str, default=None, choices=['None', 'learned', 'sine'])
     parser.add_argument('--out-head', type=str, default='linear', choices=['linear', 'mlp'])
     parser.add_argument('--pretrained', type=str, default=None, help='pretrained model path')
+    parser.add_argument('--aggregation', type=str, default='dot', choices=['dot', 'concat', 'sum'])
 
     # Optimization hyperparameters
     parser.add_argument('--epochs', type=int, default=100, help='number of epochs')
@@ -92,6 +93,8 @@ def load_args():
             outdir = outdir + '/{}_{}_{}'.format(
                 args.pooling, args.out_head, args.dropout
             )
+        if args.dataset in ['ligand_affinity']:
+            outdir = outdir + '/{}'.format(args.aggregation)
         os.makedirs(outdir, exist_ok=True)
         args.outdir = outdir
 
@@ -277,7 +280,8 @@ def main():
         args.out_head,
         args.pair_prediction,
         args.same_type,
-        args.other_dim
+        args.other_dim,
+        args.aggregation
     )
 
     if args.pretrained is not None:
