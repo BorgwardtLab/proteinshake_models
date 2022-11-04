@@ -53,7 +53,7 @@ def load_args():
     parser.add_argument('--pe', type=str, default=None, choices=['None', 'learned', 'sine'])
     parser.add_argument('--out-head', type=str, default='linear', choices=['linear', 'mlp'])
     parser.add_argument('--pretrained', type=str, default=None, help='pretrained model path')
-    parser.add_argument('--aggregation', type=str, default='dot', choices=['dot', 'concat', 'sum'])
+    parser.add_argument('--aggregation', type=str, default='concat', choices=['dot', 'concat', 'sum'])
 
     # Optimization hyperparameters
     parser.add_argument('--epochs', type=int, default=100, help='number of epochs')
@@ -132,8 +132,10 @@ class GNNPredictor(pl.LightningModule):
             self.criterion = nn.CrossEntropyLoss()
             self.best_val_score = 0.0
         elif task.task_type == 'regression':
-            self.main_metric = 'neg_mse'
-            self.criterion = nn.MSELoss()
+            # self.main_metric = 'neg_mse'
+            # self.criterion = nn.MSELoss()
+            self.main_metric = 'neg_mae'
+            self.criterion = nn.L1Loss()
             self.best_val_score = -float('inf')
         else:
             raise ValueError("Unknown taks type!")
@@ -192,6 +194,7 @@ class GNNPredictor(pl.LightningModule):
 
     def test_epoch_end(self, outputs):
         scores = self.evaluate_epoch_end(outputs, 'test')
+        scores['best_val_score'] = self.best_val_score
         df = pd.DataFrame.from_dict(scores, orient='index')
         df.to_csv(self.logger.log_dir + '/results.csv',
                   header=['value'], index_label='name')
@@ -216,7 +219,7 @@ class GNNPredictor(pl.LightningModule):
         if 'classification' in self.task.task_type:
             metric_list = ['val_acc', 'val_loss', 'train_acc', 'train_loss']
         elif 'regression' in self.task.task_type:
-            metric_list = ['val_mse', 'val_loss', 'train_loss']
+            metric_list = ['val_mse', 'val_mae', 'val_loss', 'train_loss']
         metrics = metrics[metric_list]
         sns.relplot(data=metrics, kind="line")
         plt.savefig(self.logger.log_dir + '/plot.png')

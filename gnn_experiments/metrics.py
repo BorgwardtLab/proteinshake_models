@@ -15,6 +15,7 @@ def compute_metrics(y_true, y_score, task_type='classification, multi-class'):
     elif 'regression' in task_type:
         return {
             'neg_mse': -metrics.mean_squared_error(y_true, y_score),
+            'neg_mae': -metrics.mean_absolute_error(y_true, y_score),
             'mse': metrics.mean_squared_error(y_true, y_score),
             'mae': metrics.mean_absolute_error(y_true, y_score),
             'r2': metrics.r2_score(y_true, y_score)
