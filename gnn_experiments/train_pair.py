@@ -169,8 +169,8 @@ class GNNPredictor(pl.LightningModule):
     def evaluate_epoch_end(self, outputs, stage='val'):
         all_preds = torch.vstack([out['y_pred'] for out in outputs])
         all_true = torch.cat([out['y_true'] for out in outputs])
-        all_preds, all_true = all_true.cpu().numpy(), all_preds.cpu().numpy()
-        all_preds, all_true = self.inverse_transform(all_preds, all_true)
+        all_true, all_preds = all_true.cpu().numpy(), all_preds.cpu().numpy()
+        all_true, all_preds = self.inverse_transform(all_true, all_preds)
         scores = compute_metrics(all_true, all_preds, self.task.task_type)
         scores = {'{}_'.format(stage) + str(key): val for key, val in scores.items()}
         if stage == 'val':
@@ -263,6 +263,7 @@ def main():
         train_dset.y_transform = scaler
         val_dset.y_transform = scaler
         test_dset.y_transform = scaler
+        y_transform = scaler
 
     train_loader = DataLoader(train_dset, batch_size=args.batch_size,
                               shuffle=True, num_workers=args.num_workers)
