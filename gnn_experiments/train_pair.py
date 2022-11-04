@@ -95,7 +95,7 @@ def load_args():
             outdir = outdir + '/{}_{}_{}'.format(
                 args.pooling, args.out_head, args.dropout
             )
-        if args.dataset in ['ligand_affinity']:
+        if args.dataset in ['tm']:
             outdir = outdir + '/{}'.format(args.aggregation)
         os.makedirs(outdir, exist_ok=True)
         args.outdir = outdir
