@@ -13,6 +13,7 @@ from torch_geometric.loader import DataLoader
 import torch_geometric.transforms as T
 
 from proteinshake import datasets
+from proteinshake.utils import Compose
 
 from models import GNN, NodeClassifier, GNN_TYPES
 from utils import OneHotToIndex, MaskNode, UsedAttr
@@ -127,7 +128,7 @@ def main():
     datapath = '../data/AlphaFold/{}'.format(args.organism)
     dset = datasets.AlphaFoldDataset(
         root=datapath, organism=args.organism).to_graph(eps=args.graph_eps).pyg(
-        transform=T.Compose([UsedAttr(), MaskNode(20, mask_rate=args.mask_rate)])
+        transform=Compose([UsedAttr(), MaskNode(20, mask_rate=args.mask_rate)])
     )
 
     data_loader = DataLoader(dset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
