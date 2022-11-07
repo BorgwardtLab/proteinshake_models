@@ -1,18 +1,8 @@
 from proteinshake.datasets import EnzymeCommissionDataset
-from scripts.get_training_info import *
+from proteinshake.tasks import *
 
-# keep the original dataset and the pyg version separate
-d = EnzymeCommissionDataset(root='data/test_carlos')
-d_pyg = d.to_point().torch()
+task = RetrieveTask(root='data/tm')
+ds = task.dataset.to_graph(eps=5).pyg()
 
-# load a dictionary with attributes for each task. e.g. num_classes, task_type
-# these can be used for constructing the model
-task_dict = get_task_info(d)
-
-# for a pyg dataset, adds a .y attribute with the target
-#set_y_pyg(d_pyg, d)
-# returns a callable which takes model output as info and g.y
-evaluator = get_evaluator(d)
-# returns 3 lists of indices deterministically (train, val, test)
-splits = get_splits(d)
-print(splits)
+for (graph1, protein_dict1), (graph2, protein_dict2)  in ds[task.train_ind[:5]]:
+    print(task.target(protein_dict1, protein_dict2))

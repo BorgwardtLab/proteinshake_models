@@ -1,4 +1,4 @@
-import torch, os
+import torch, os, yaml
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -7,14 +7,16 @@ from tqdm import tqdm
 
 class Trainer():
 
-    def __init__(self, model, optimizer, dataloader, path, verbose=True):
+    def __init__(self, model, optimizer, train, test, val, path, verbose=True):
         self.model = model.cuda()
         self.optimizer = optimizer
         self.criterion = model.criterion
-        self.dataloader = dataloader
+        self.dataloader = train
         self.path = path
         self.verbose = verbose
         self.losses = []
+        self.test = test
+        self.val = val
         os.makedirs(path, exist_ok=True)
 
     def train(self, epochs):
@@ -26,6 +28,10 @@ class Trainer():
                 loss = self.train_step(batch)
                 self.losses.append(loss)
             self.plot()
+            self.eval('val')
+        metrics = self.eval('test')
+        with open(self.path+'/metrics.yml', 'w') as file:
+            yaml.dump(metrics, file)
 
     def train_step(self, batch):
         self.optimizer.zero_grad()
@@ -44,23 +50,22 @@ class Trainer():
         plt.savefig(self.path+'/loss.png')
         plt.close()
 
-class Evaluator():
-
-    def __init__(self, model, dataloader, verbose=True):
-        self.model = model.cuda()
-        self.dataloader = dataloader
-        self.verbose = verbose
-
-    def eval(self):
+    def eval(self, dataloader):
         self.model.eval()
-        batch_pbar = tqdm(self.dataloader, desc='Batch', leave=False) if self.verbose else self.dataloader
+        dataloader = self.test if dataloader == 'test' else self.val
+        batch_pbar = tqdm(dataloader, desc='Batch', leave=False) if self.verbose else dataloader
         y_true, y_pred = [],[]
         for batch in batch_pbar:
             _y_true, _y_pred = self.model.predict(batch)
             y_true.extend(_y_true.cpu().detach())
             y_pred.extend(_y_pred.cpu().detach())
+        y_true = np.array(y_true)
+        y_pred = np.array(y_pred)
+        #print(y_true,y_pred)
+        #print(y_true.shape, y_pred.shape)
         metrics = self.model.task.evaluate(y_true, y_pred)
         print(metrics)
+        self.model.train()
         return {k:float(v) for k,v in metrics.items()}
 
 

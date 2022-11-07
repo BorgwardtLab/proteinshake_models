@@ -12,6 +12,7 @@ __pycache__/
 results/
 debug.py
 .proteinshake/
+todo.txt
 
 # cython files
 *.pyc
