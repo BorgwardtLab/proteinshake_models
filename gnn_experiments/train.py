@@ -62,6 +62,7 @@ def load_args():
     parser.add_argument('--batch-size', type=int, default=256,
                         help='batch size')
     parser.add_argument('--warmup', type=int, default=10, help='warmup epochs')
+    parser.add_argument('--scale', action='store_true', help='rescale y')
 
     # Other hyperparameters
     parser.add_argument('--outdir', type=str, default='../logs', help='out path')
@@ -130,7 +131,7 @@ class AttrParser(object):
         return new_data
 
 class GNNPredictor(pl.LightningModule):
-    def __init__(self, model, args, task):
+    def __init__(self, model, args, task, y_transform=None):
         super().__init__()
         self.model = model
         self.args = args
@@ -147,6 +148,12 @@ class GNNPredictor(pl.LightningModule):
             raise ValueError("Unknown taks type!")
         self.main_val_metric = 'val_' + self.main_metric
         self.best_weights = None
+        self.y_transform = y_transform
+
+    def inverse_transform(self, y_true, y_pred):
+        if self.y_transform is None:
+            return y_true, y_pred
+        return self.y_transform.inverse_transform(y_true), self.y_transform.inverse_transform(y_pred)
 
     def training_step(self, batch, batch_idx):
         other_x = batch.other_x if hasattr(batch, 'other_x') else None
@@ -171,7 +178,9 @@ class GNNPredictor(pl.LightningModule):
     def evaluate_epoch_end(self, outputs, stage='val'):
         all_preds = torch.vstack([out['y_pred'] for out in outputs])
         all_true = torch.cat([out['y_true'] for out in outputs])
-        scores = compute_metrics(all_true.cpu().numpy(), all_preds.cpu().numpy(), self.task.task_type)
+        all_true, all_preds = all_true.cpu().numpy(), all_preds.cpu().numpy()
+        all_true, all_preds = self.inverse_transform(all_true, all_preds)
+        scores = compute_metrics(all_true, all_preds, self.task.task_type)
         scores = {'{}_'.format(stage) + str(key): val for key, val in scores.items()}
         if stage == 'val':
             self.log_dict(scores)
@@ -192,6 +201,7 @@ class GNNPredictor(pl.LightningModule):
 
     def test_epoch_end(self, outputs):
         scores = self.evaluate_epoch_end(outputs, 'test')
+        scores['best_val_score'] = self.best_val_score
         df = pd.DataFrame.from_dict(scores, orient='index')
         df.to_csv(self.logger.log_dir + '/results.csv',
                   header=['value'], index_label='name')
@@ -216,7 +226,7 @@ class GNNPredictor(pl.LightningModule):
         if 'classification' in self.task.task_type:
             metric_list = ['val_acc', 'val_loss', 'train_acc', 'train_loss']
         elif 'regression' in self.task.task_type:
-            metric_list = ['val_mse', 'val_loss', 'train_loss']
+            metric_list = ['val_mse', 'val_mae', 'val_loss', 'train_loss']
         metrics = metrics[metric_list]
         sns.relplot(data=metrics, kind="line")
         plt.savefig(self.logger.log_dir + '/plot.png')
@@ -231,6 +241,7 @@ def main():
     args.pair_prediction = False
     args.same_type = False
     args.other_dim = None
+    y_transform = None
     if args.dataset == 'ec':
         task = ps_tasks.EnzymeCommissionTask(root=datapath)
         dset = task.dataset.to_graph(eps=args.graph_eps).pyg(
@@ -247,10 +258,12 @@ def main():
         args.same_type = False
         args.other_dim = dset[0].other_x.shape[-1]
         # normalize y
-        from sklearn.preprocessing import StandardScaler
-        all_y = np.asarray([data.y.item() for data in dset])
-        scaler = StandardScaler().fit(all_y.reshape(-1, 1))
-        dset.transform = AttrParser(task, scaler)
+        if args.scale:
+            from sklearn.preprocessing import StandardScaler
+            all_y = np.asarray([data.y.item() for data in Subset(dset, task.train_ind)])
+            print(all_y)
+            y_transform = StandardScaler().fit(all_y.reshape(-1, 1))
+            dset.transform = AttrParser(task, y_transform)
     else:
         raise ValueError("not implemented!")
 
@@ -287,7 +300,7 @@ def main():
     if args.pretrained is not None:
         encoder.from_pretrained(args.pretrained + '/model.pt')
 
-    model = GNNPredictor(encoder, args, task)
+    model = GNNPredictor(encoder, args, task, y_transform)
 
     logger = pl.loggers.CSVLogger(args.outdir, name='csv_logs')
     callbacks = [
