@@ -53,6 +53,7 @@ def load_args():
     parser.add_argument('--out-head', type=str, default='linear', choices=['linear', 'mlp'])
     parser.add_argument('--pretrained', type=str, default=None, help='pretrained model path')
     parser.add_argument('--aggregation', type=str, default='dot', choices=['dot', 'concat', 'sum'])
+    parser.add_argument('--aggregation-norm', action='store_true', help='normalize before aggregation')
 
     # Optimization hyperparameters
     parser.add_argument('--epochs', type=int, default=100, help='number of epochs')
@@ -294,7 +295,8 @@ def main():
         args.pair_prediction,
         args.same_type,
         args.other_dim,
-        args.aggregation
+        args.aggregation,
+        args.aggregation_norm
     )
 
     if args.pretrained is not None:
