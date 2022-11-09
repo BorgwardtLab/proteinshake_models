@@ -143,7 +143,8 @@ class GNNPredictor(pl.LightningModule):
             self.best_val_score = 0.0
         elif task.task_type == 'regression':
             self.main_metric = 'neg_mse'
-            self.criterion = nn.MSELoss()
+            #self.criterion = nn.MSELoss()
+            self.criterion = nn.L1Loss()
             self.best_val_score = -float('inf')
         else:
             raise ValueError("Unknown taks type!")

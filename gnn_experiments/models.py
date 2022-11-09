@@ -247,7 +247,8 @@ class GNN_graphpred(nn.Module):
                     nn.Linear(other_dim, embed_dim),
                     nn.BatchNorm1d(embed_dim),
                     nn.ReLU(True),
-                    nn.Linear(embed_dim, embed_dim)
+                    nn.Linear(embed_dim, embed_dim),
+                    nn.BatchNorm1d(embed_dim),
                 )
             self.aggregator = Aggregator(embed_dim, aggregation, aggregation_norm)
 
