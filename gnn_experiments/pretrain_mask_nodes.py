@@ -154,12 +154,7 @@ def main():
             dropout = args.dropout
         )
     elif args.representation == 'point':
-        from transforms.voxel import PointMaskingTransform
-        dset = dset.to_point().torch(
-            transform=Compose([PointMaskingTransform()])
-        )
-        from models.voxel import PointNet_Pretraining
-        net = PointNet_Pretraining()
+        pass
 
     data_loader = DataLoader(dset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
     model = Masking(net, args)

@@ -16,16 +16,23 @@ class VoxelMaskingTransform():
 
 class VoxelLigandAffinityTransform():
 
-    def __init__(self, task):
+    def __init__(self, task, y_transform=None):
         self.task = task
+        self.y_transform = y_transform
 
     def __call__(self, args):
         data, protein_dict = args
-        return data, torch.tensor(self.task.target(protein_dict)).float()
+        target = torch.tensor(self.task.target(protein_dict)).float()
+        if self.y_transform is not None:
+            target = torch.from_numpy(self.y_transform.transform(target).astype('float32'))
+        fp_maccs = torch.tensor(protein_dict['protein']['fp_maccs'])
+        fp_morgan_r2 = torch.tensor(protein_dict['protein']['fp_morgan_r2'])
+        fingerprint = torch.cat((fp_maccs, fp_morgan_r2), dim=-1).float()
+        return data, target, fingerprint
 
 class VoxelEnzymeClassTransform():
 
-    def __init__(self, task):
+    def __init__(self, task, y_transform=None):
         self.task = task
 
     def __call__(self, args):

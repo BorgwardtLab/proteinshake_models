@@ -18,7 +18,7 @@ import torch_geometric.transforms as T
 
 from proteinshake import tasks as ps_tasks
 
-from models import GNN, GNN_graphpred, NodeClassifier, GNN_TYPES
+from models.graph import GNN, GNN_graphpred, NodeClassifier, GNN_TYPES
 from utils import ResidueIdx
 from utils import get_cosine_schedule_with_warmup
 from metrics import compute_metrics
@@ -32,6 +32,8 @@ def load_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
+    parser.add_argument('--representation', type=str, default='graph',
+                        help='representation (graph/voxel/point)')
     parser.add_argument('--seed', type=int, default=0,
                         help='random seed')
     parser.add_argument('--dataset', type=str, default='ec',
@@ -139,17 +141,18 @@ class GNNPredictor(pl.LightningModule):
         loss = self.criterion(y_hat, y)
 
         if 'classification' in self.task.task_type:
-            acc = (y_hat.detach().argmax(dim=-1) == batch.y).float().mean().item()
+            acc = (y_hat.detach().argmax(dim=-1) == y).float().mean().item()
             self.log("train_acc", acc, on_step=False, on_epoch=True, batch_size=1, prog_bar=True)
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1)
 
         return loss
 
     def validation_step(self, batch, batch_idx):
-        y_hat, loss = self.model.step(batch, self.criterion)
+        y_hat, y = self.model.step(batch)
+        loss = self.criterion(y_hat, y)
 
-        self.log('val_loss', loss, batch_size=len(batch.y))
-        return {'y_pred': y_hat, 'y_true': batch.y}
+        self.log('val_loss', loss, batch_size=len(y))
+        return {'y_pred': y_hat, 'y_true': y}
 
     def evaluate_epoch_end(self, outputs, stage='val'):
         all_preds = torch.vstack([out['y_pred'] for out in outputs])
@@ -170,8 +173,9 @@ class GNNPredictor(pl.LightningModule):
         return scores
 
     def test_step(self, batch, batch_idx):
-        y_hat, loss = self.model.step(batch, self.criterion)
-        return {'y_pred': y_hat, 'y_true': batch.y}
+        y_hat, y = self.model.step(batch)
+        loss = self.criterion(y_hat, y)
+        return {'y_pred': y_hat, 'y_true': y}
 
     def test_epoch_end(self, outputs):
         scores = self.evaluate_epoch_end(outputs, 'test')
@@ -218,35 +222,80 @@ def main():
     y_transform = None
     if args.dataset == 'ec':
         task = ps_tasks.EnzymeCommissionTask(root=datapath)
-        dset = task.dataset.to_graph(eps=args.graph_eps).pyg(
-            transform=AttrParser(task)
-        )
+        dset = task.dataset
         num_class = task.num_classes
     elif args.dataset == 'ligand_affinity':
         task = ps_tasks.LigandAffinityTask(root=datapath)
-        dset = task.dataset.to_graph(eps=args.graph_eps).pyg(
-            transform=AttrParser(task)
-        )
-        num_class = 1
-        args.pair_prediction = True
-        args.same_type = False
-        args.other_dim = dset[0].other_x.shape[-1]
         # normalize y
         if args.scale:
             from sklearn.preprocessing import StandardScaler
-            all_y = np.asarray([data.y.item() for data in Subset(dset, task.train_ind)])
+            all_y = np.asarray([task.target(protein_dict) for data, protein_dict in Subset(dset, task.train_ind)])
             print(all_y)
             y_transform = StandardScaler().fit(all_y.reshape(-1, 1))
-            dset.transform = AttrParser(task, y_transform)
+        dset = task.dataset
+        num_class = 1
+        args.pair_prediction = True
+        args.same_type = False
+
     else:
         raise ValueError("not implemented!")
 
-    protein_len_list = np.asarray([data.num_nodes for data in dset])
+    protein_len_list = np.asarray([len(protein_dict['protein']['sequence']) for  protein_dict in dset.proteins()[0]])
     print("protein length less or equal to 3000 is {}%".format(
         np.sum(protein_len_list <= 3000) / len(protein_len_list) * 100))
     train_mask = protein_len_list[task.train_ind] <= 3000
     val_mask = protein_len_list[task.val_ind] <= 3000
     test_mask = protein_len_list[task.test_ind] <= 3000
+
+    if args.representation == 'graph':
+        from transforms.graph import TrainingAttr
+        dset = dset.to_graph(eps=args.graph_eps).pyg(
+            transform=TrainingAttr(task, y_transform)
+        )
+        from models.graph import NodeClassifier
+        net = GNN_graphpred(
+            num_class,
+            args.embed_dim,
+            args.num_layers,
+            args.dropout,
+            args.gnn_type,
+            args.use_edge_attr,
+            args.pe,
+            args.pooling,
+            args.out_head,
+            args.pair_prediction,
+            args.same_type,
+            args.other_dim,
+            args.aggregation,
+            args.aggregation_norm
+        )
+        if args.dataset == 'ligand_affinity':
+            args.other_dim = dset[0].other_x.shape[-1]
+    elif args.representation == 'voxel':
+        if args.dataset == 'ec':
+            from transforms.voxel import VoxelEnzymeClassTransform as Transform
+            from models.voxel import VoxelNet_EnzymeClass as VoxelNet
+        elif args.dataset == 'ligand_affinity':
+            from transforms.voxel import VoxelLigandAffinityTransform as Transform
+            from models.voxel import VoxelNet_LigandAffinity as VoxelNet
+        dset = dset.to_voxel(gridsize=(20,20,20), voxelsize=10).torch(
+            transform=Transform(task, y_transform=y_transform)
+        )
+        if args.dataset == 'ligand_affinity':
+            args.other_dim = dset[0][2].shape[-1]
+        net = VoxelNet(
+            input_dim = 20,
+            out_dim = num_class,
+            hidden_dim = args.embed_dim,
+            num_layers = args.num_layers,
+            kernel_size = args.kernel_size,
+            dropout = args.dropout,
+            other_dim = args.other_dim
+        )
+    elif args.representation == 'point':
+        pass
+
+
 
     train_loader = DataLoader(Subset(dset, np.asarray(task.train_ind)[train_mask]), batch_size=args.batch_size,
                               shuffle=True, num_workers=args.num_workers)
@@ -255,27 +304,12 @@ def main():
     test_loader = DataLoader(Subset(dset, np.asarray(task.test_ind)[test_mask]), batch_size=args.batch_size,
                               shuffle=False, num_workers=args.num_workers)
 
-    encoder = GNN_graphpred(
-        num_class,
-        args.embed_dim,
-        args.num_layers,
-        args.dropout,
-        args.gnn_type,
-        args.use_edge_attr,
-        args.pe,
-        args.pooling,
-        args.out_head,
-        args.pair_prediction,
-        args.same_type,
-        args.other_dim,
-        args.aggregation,
-        args.aggregation_norm
-    )
+
 
     if args.pretrained is not None:
-        encoder.from_pretrained(args.pretrained + '/model.pt')
+        net.from_pretrained(args.pretrained + '/model.pt')
 
-    model = GNNPredictor(encoder, args, task, y_transform)
+    model = GNNPredictor(net, args, task, y_transform)
 
     logger = pl.loggers.CSVLogger(args.outdir, name='csv_logs')
     callbacks = [
@@ -304,7 +338,7 @@ def main():
     trainer.test(model, test_loader)
     model.plot()
     if args.save_logs:
-        encoder.save(args.outdir + '/model.pt', args)
+        net.save(args.outdir + '/model.pt', args)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 import math
 import torch
 from torch_geometric.data import Data
+from proteinshake import tasks as ps_tasks
 
 class PretrainingAttr(object):
     def __call__(self, data):
