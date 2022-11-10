@@ -107,21 +107,7 @@ def load_args():
         torch.cuda.manual_seed_all(args.seed)
     return args
 
-class AttrParser(object):
-    def __init__(self, task, y_transform=None):
-        self.task = task
-        self.y_transform = y_transform
-
-    def __call__(self, data):
-        data, protein_dict = data
-        new_data = Data()
-        new_data.x = data.x
-        new_data.residue_idx = torch.arange(data.num_nodes)
-        new_data.edge_index = data.edge_index
-        new_data.edge_attr = data.edge_attr
-        return new_data
-
-class GNNPredictor(pl.LightningModule):
+class GNNPairPredictor(pl.LightningModule):
     def __init__(self, model, args, task, y_transform=None):
         super().__init__()
         self.model = model
@@ -149,8 +135,7 @@ class GNNPredictor(pl.LightningModule):
         return self.y_transform.inverse_transform(y_true), self.y_transform.inverse_transform(y_pred)
 
     def training_step(self, batch, batch_idx):
-        data1, data2, y = batch
-        y_hat = self.model(data1, data2)
+        y_hat, y = self.model.step(batch)
         loss = self.criterion(y_hat, y)
 
         if 'classification' in self.task.task_type:
@@ -224,6 +209,7 @@ class GNNPredictor(pl.LightningModule):
         sns.relplot(data=metrics, kind="line")
         plt.savefig(self.logger.log_dir + '/plot.png')
         plt.close()
+
 
 def main():
     global args

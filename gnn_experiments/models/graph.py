@@ -154,12 +154,23 @@ class GNN(nn.Module):
 
 
 class NodeClassifier(nn.Module):
-    def __init__(self, embed_dim, num_class=NUM_PROTEINS):
+    def __init__(self, embed_dim=256, num_layers=3, dropout=0.0, gnn_type='gin',
+                 use_edge_attr=False, pe=None, num_class=20):
         super().__init__()
-        self.classifier = nn.Linear(embed_dim, num_class)
+        self.base = GNN(embed_dim, num_layers, dropout, gnn_type, use_edge_attr, pe)
+        self.head = nn.Linear(embed_dim, num_class)
 
-    def forward(self, x):
-        return self.classifier(x)
+    def step(self, batch):
+        node_true = batch.masked_node_label
+        node_repr = self.base(batch)
+        node_pred = self.head(node_repr[batch.masked_node_indices])
+        return node_pred, node_true
+
+    def save(self, path, args):
+        torch.save(
+            {'args': args, 'base_state_dict': self.base.state_dict(), 'head_state_dict': self.head.state_dict()},
+            path
+        )
 
 
 class GNN_nodepred(nn.Module):
@@ -282,3 +293,13 @@ class GNN_graphpred(nn.Module):
             {'args': args, 'state_dict': self.state_dict()},
             model_path
         )
+
+    def step(self, batch):
+        if self.pair_prediction:
+            data1, data2, y = batch
+            y_hat = self.forward(data1, data2)
+            return y_hat, y
+        else:
+            other_x = batch.other_x if hasattr(batch, 'other_x') else None
+            y_hat = self.forward(batch, other_x)
+            return y_hat, y

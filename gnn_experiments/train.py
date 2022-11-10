@@ -43,6 +43,7 @@ def load_args():
 
     # Model hyperparameters
     parser.add_argument('--num-layers', type=int, default=5, help="number of layers")
+    parser.add_argument('--kernel-size', type=int, default=3, help="kernel size")
     parser.add_argument('--embed-dim', type=int, default=256, help="hidden dimensions")
     parser.add_argument('--dropout', type=float, default=0.0, help="dropout")
     parser.add_argument('--gnn-type', type=str, default='gin', choices=GNN_TYPES,
@@ -105,30 +106,6 @@ def load_args():
         torch.cuda.manual_seed_all(args.seed)
     return args
 
-class AttrParser(object):
-    def __init__(self, task, y_transform=None):
-        self.task = task
-        self.y_transform = y_transform
-
-    def __call__(self, data):
-        data, protein_dict = data
-        new_data = Data()
-        new_data.x = data.x
-        new_data.residue_idx = torch.arange(data.num_nodes)
-        new_data.edge_index = data.edge_index
-        new_data.edge_attr = data.edge_attr
-        new_data.y = self.task.target(protein_dict)
-        if self.task.task_type == 'regression':
-            new_data.y = torch.tensor(new_data.y).view(-1, 1)
-            if self.y_transform is not None:
-                new_data.y = torch.from_numpy(self.y_transform.transform(
-                    new_data.y).astype('float32'))
-        if isinstance(self.task, ps_tasks.LigandAffinityTask):
-            fp_maccs = torch.tensor(protein_dict['protein']['fp_maccs']).view(1, -1)
-            fp_morgan_r2 = torch.tensor(protein_dict['protein']['fp_morgan_r2']).view(1, -1)
-            new_data.other_x = torch.cat((fp_maccs, fp_morgan_r2), dim=-1).float()
-        return new_data
-
 class GNNPredictor(pl.LightningModule):
     def __init__(self, model, args, task):
         super().__init__()
@@ -149,9 +126,8 @@ class GNNPredictor(pl.LightningModule):
         self.best_weights = None
 
     def training_step(self, batch, batch_idx):
-        other_x = batch.other_x if hasattr(batch, 'other_x') else None
-        y_hat = self.model(batch, other_x)
-        loss = self.criterion(y_hat, batch.y)
+        y_hat, y = self.model.step(batch)
+        loss = self.criterion(y_hat, y)
 
         if 'classification' in self.task.task_type:
             acc = (y_hat.detach().argmax(dim=-1) == batch.y).float().mean().item()
@@ -161,9 +137,7 @@ class GNNPredictor(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        other_x = batch.other_x if hasattr(batch, 'other_x') else None
-        y_hat = self.model(batch, other_x)
-        loss = self.criterion(y_hat, batch.y)
+        y_hat, loss = self.model.step(batch, self.criterion)
 
         self.log('val_loss', loss, batch_size=len(batch.y))
         return {'y_pred': y_hat, 'y_true': batch.y}
@@ -185,9 +159,7 @@ class GNNPredictor(pl.LightningModule):
         return scores
 
     def test_step(self, batch, batch_idx):
-        other_x = batch.other_x if hasattr(batch, 'other_x') else None
-        y_hat = self.model(batch, other_x)
-        loss = self.criterion(y_hat, batch.y)
+        y_hat, loss = self.model.step(batch, self.criterion)
         return {'y_pred': y_hat, 'y_true': batch.y}
 
     def test_epoch_end(self, outputs):
