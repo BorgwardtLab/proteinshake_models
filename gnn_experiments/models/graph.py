@@ -201,9 +201,10 @@ class GNN_nodepred(nn.Module):
 
 
 class Aggregator(nn.Module):
-    def __init__(self, embed_dim=256, aggregation='concat'):
+    def __init__(self, embed_dim=256, aggregation='concat', normalize=False):
         super().__init__()
         self.aggregation = aggregation
+        self.normalize = normalize
 
         if aggregation == 'concat':
             self.aggregator = nn.Sequential(
@@ -219,6 +220,9 @@ class Aggregator(nn.Module):
             )
 
     def forward(self, x1, x2):
+        if self.normalize:
+            x1 = F.normalize(x1, dim=-1)
+            x2 = F.normalize(x2, dim=-1)
         if self.aggregation == 'concat':
             x = torch.cat((x1, x2), dim=-1)
         elif self.aggregation == 'dot':
@@ -231,7 +235,8 @@ class Aggregator(nn.Module):
 class GNN_graphpred(nn.Module):
     def __init__(self, num_class, embed_dim=256, num_layers=3, dropout=0.0, gnn_type='gin',
                  use_edge_attr=False, pe=None, global_pool='mean', out_head='mlp',
-                 pair_prediction=False, same_type=False, other_dim=1024, aggregation='dot'):
+                 pair_prediction=False, same_type=False, other_dim=1024,
+                 aggregation='dot', aggregation_norm=False):
         super().__init__()
 
         self.encoder = GNN(embed_dim, num_layers, dropout, gnn_type, use_edge_attr, pe)
@@ -251,10 +256,12 @@ class GNN_graphpred(nn.Module):
             if not same_type:
                 self.other_encoder = nn.Sequential(
                     nn.Linear(other_dim, embed_dim),
+                    nn.BatchNorm1d(embed_dim),
                     nn.ReLU(True),
-                    nn.Linear(embed_dim, embed_dim)
+                    nn.Linear(embed_dim, embed_dim),
+                    nn.BatchNorm1d(embed_dim),
                 )
-            self.aggregator = Aggregator(embed_dim, aggregation)
+            self.aggregator = Aggregator(embed_dim, aggregation, aggregation_norm)
 
 
         if out_head == 'linear':
