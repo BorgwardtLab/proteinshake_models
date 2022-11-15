@@ -79,6 +79,9 @@ def load_args():
         args.num_layers = 2
         args.outdir = '../logs_debug'
 
+    if args.dataset == 'binding_site':
+        args.pooling = None
+
     args.save_logs = False
     if args.outdir != '':
         args.save_logs = True
@@ -119,9 +122,11 @@ class AttrParser(object):
         new_data.residue_idx = torch.arange(data.num_nodes)
         new_data.edge_index = data.edge_index
         new_data.edge_attr = data.edge_attr
-        new_data.y = self.task.target(protein_dict)
+        new_data.y = torch.tensor(self.task.target(protein_dict))
+        if 'binary' in self.task.task_type:
+            new_data.y = new_data.y.view(-1, 1).float()
         if self.task.task_type == 'regression':
-            new_data.y = torch.tensor(new_data.y).view(-1, 1)
+            new_data.y = new_data.y.view(-1, 1)
             if self.y_transform is not None:
                 new_data.y = torch.from_numpy(self.y_transform.transform(
                     new_data.y).astype('float32'))
@@ -140,6 +145,10 @@ class GNNPredictor(pl.LightningModule):
         if task.task_type == 'classification, multi-class':
             self.main_metric = 'acc'
             self.criterion = nn.CrossEntropyLoss()
+            self.best_val_score = 0.0
+        elif task.task_type == 'binary-classification':
+            self.main_metric = 'auc'
+            self.criterion = nn.BCEWithLogitsLoss()
             self.best_val_score = 0.0
         elif task.task_type == 'regression':
             self.main_metric = 'neg_mse'
@@ -163,8 +172,12 @@ class GNNPredictor(pl.LightningModule):
         loss = self.criterion(y_hat, batch.y)
 
         if 'classification' in self.task.task_type:
-            acc = (y_hat.detach().argmax(dim=-1) == batch.y).float().mean().item()
-            self.log("train_acc", acc, on_step=False, on_epoch=True, batch_size=1, prog_bar=True)
+            if 'binary' in self.task.task_type:
+                acc = ((y_hat.detach() > 0).float() == batch.y).float().mean().item()
+                self.log("train_acc", acc, on_step=False, on_epoch=True, batch_size=1, prog_bar=True)
+            else:
+                acc = (y_hat.detach().argmax(dim=-1) == batch.y).float().mean().item()
+                self.log("train_acc", acc, on_step=False, on_epoch=True, batch_size=1, prog_bar=True)
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1)
 
         return loss
@@ -263,9 +276,14 @@ def main():
         if args.scale:
             from sklearn.preprocessing import StandardScaler
             all_y = np.asarray([data.y.item() for data in Subset(dset, task.train_ind)])
-            print(all_y)
             y_transform = StandardScaler().fit(all_y.reshape(-1, 1))
             dset.transform = AttrParser(task, y_transform)
+    elif args.dataset == 'binding_site':
+        task = ps_tasks.BindingSitePredictionTask(root=datapath)
+        dset = task.dataset.to_graph(eps=args.graph_eps).pyg(
+            transform=AttrParser(task)
+        )
+        num_class = 1
     else:
         raise ValueError("not implemented!")
 

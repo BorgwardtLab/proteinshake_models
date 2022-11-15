@@ -12,6 +12,13 @@ def compute_metrics(y_true, y_score, task_type='classification, multi-class'):
                 'precision': metrics.precision_score(y_true, y_pred, average='macro', zero_division=0),
                 'recall': metrics.recall_score(y_true, y_pred, average='macro', zero_division=0)
             }
+        elif 'binary' in task_type:
+            y_pred = (y_score > 0).astype('float32')
+            return {
+                'acc': metrics.accuracy_score(y_true, y_pred),
+                'auc': metrics.roc_auc_score(y_true, y_score),
+                'aupr': metrics.average_precision_score(y_true, y_score)
+            }
     elif 'regression' in task_type:
         return {
             'neg_mse': -metrics.mean_squared_error(y_true, y_score),
