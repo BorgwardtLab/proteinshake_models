@@ -17,7 +17,8 @@ def compute_metrics(y_true, y_score, task_type='classification, multi-class'):
             return {
                 'acc': metrics.accuracy_score(y_true, y_pred),
                 'auc': metrics.roc_auc_score(y_true, y_score),
-                'aupr': metrics.average_precision_score(y_true, y_score)
+                'aupr': metrics.average_precision_score(y_true, y_score),
+                'mcc': metrics.matthews_corrcoef(y_true, y_pred),
             }
     elif 'regression' in task_type:
         return {
