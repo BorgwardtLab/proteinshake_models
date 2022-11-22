@@ -54,7 +54,11 @@ class VoxelNet_EnzymeClass(nn.Module):
 
     def step(self, batch):
         data, y = batch
-        y_hat = self.head(self.pool(self.base(data)).reshape(data.shape[0], -1))
+        nonzero_mask = ~((data == 0).all(-1))
+        x = self.base(data).permute(0,2,3,4,1)
+        x[nonzero_mask] = 0.
+        x = torch.amax(x, dim=(1,2,3))
+        y_hat = self.head(x)
         return y_hat, torch.argmax(y, -1)
 
     def save(self, path, args):
@@ -74,7 +78,10 @@ class VoxelNet_LigandAffinity(nn.Module):
 
     def step(self, batch):
         data, y, fingerprint = batch
-        x = self.pool(self.base(data)).reshape(data.shape[0], -1)
+        nonzero_mask = ~((data == 0).all(-1))
+        x = self.base(data).permute(0,2,3,4,1)
+        x[nonzero_mask] = 0.
+        x = torch.amax(x, dim=(1,2,3))
         x = torch.cat([x,fingerprint], dim=-1)
         y_hat = self.head(x)
         return y_hat, torch.unsqueeze(y,1)
