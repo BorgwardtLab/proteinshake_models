@@ -268,6 +268,8 @@ def main():
         dset = dset.to_graph(eps=args.graph_eps).pyg(
             transform=TrainingAttr(task, y_transform)
         )
+        if args.dataset == 'ligand_affinity':
+            args.other_dim = dset[0].other_x.shape[-1]
         from models.graph import GNN_graphpred
         net = GNN_graphpred(
             num_class,
@@ -285,8 +287,6 @@ def main():
             args.aggregation,
             args.aggregation_norm
         )
-        if args.dataset == 'ligand_affinity':
-            args.other_dim = dset[0].other_x.shape[-1]
     elif args.representation == 'voxel':
         from transforms.voxel import VoxelRotationAugment
         if args.dataset == 'ec':

@@ -282,7 +282,7 @@ class GNN_graphpred(nn.Module):
         self.encoder.load_state_dict(torch.load(model_path)['base_state_dict'])
         print(f"Model loaded from {model_path}")
 
-    def forward(self, data, other_data=None):
+    def forward(self, data, other_data = None):
         bsz = len(data.ptr) - 1
         output = self.encoder(data)
         if self.pooling is not None:
@@ -307,10 +307,11 @@ class GNN_graphpred(nn.Module):
 
     def step(self, batch):
         if self.pair_prediction:
-            data1, data2, y = batch
-            y_hat = self.forward(data1, data2)
-            return y_hat, y
+            if self.same_type:
+                data, other_x, y = batch
+            else:
+                data, other_x, y = batch, batch.other_x, batch.y
         else:
-            other_x = batch.other_x if hasattr(batch, 'other_x') else None
-            y_hat = self.forward(batch, other_x)
-            return y_hat, batch.y
+            data, other_x, y = batch, None, batch.y
+        y_hat = self.forward(data, other_x)
+        return y_hat, y

@@ -149,8 +149,7 @@ class PairPredictor(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        data1, data2, y = batch
-        y_hat = self.model(data1, data2)
+        y_hat, y = self.model.step(batch)
         loss = self.criterion(y_hat, y)
 
         self.log('val_loss', loss, batch_size=len(y))
@@ -175,8 +174,7 @@ class PairPredictor(pl.LightningModule):
         return scores
 
     def test_step(self, batch, batch_idx):
-        data1, data2, y = batch
-        y_hat = self.model(data1, data2)
+        y_hat, y = self.model.step(batch)
         loss = self.criterion(y_hat, y)
         return {'y_pred': y_hat, 'y_true': y}
 
@@ -232,16 +230,6 @@ def main():
     else:
         raise ValueError("not implemented!")
 
-    # Filter proteins longer than 3000
-    # TK: this doesn't work with the double index from the TM task
-    '''
-    protein_len_list = np.asarray([len(protein_dict['protein']['sequence']) for  protein_dict in dset.proteins()[0]])
-    print("protein length less or equal to 3000 is {}%".format(
-        np.sum(protein_len_list <= 3000) / len(protein_len_list) * 100))
-    train_mask = protein_len_list[task.train_ind] <= 3000
-    val_mask = protein_len_list[task.val_ind] <= 3000
-    test_mask = protein_len_list[task.test_ind] <= 3000
-    '''
 
     if args.representation == 'graph':
         from transforms.graph import PretrainingAttr as Transform
