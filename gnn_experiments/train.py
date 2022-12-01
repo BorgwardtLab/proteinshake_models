@@ -19,7 +19,7 @@ from proteinshake.utils import Compose
 
 from proteinshake import tasks as ps_tasks
 
-from models.graph import GNN, GNN_graphpred, NodeClassifier, GNN_TYPES
+from models.graph import GNN_TYPES
 from utils import ResidueIdx
 from utils import get_cosine_schedule_with_warmup
 from metrics import compute_metrics
@@ -268,7 +268,7 @@ def main():
         dset = dset.to_graph(eps=args.graph_eps).pyg(
             transform=TrainingAttr(task, y_transform)
         )
-        from models.graph import NodeClassifier
+        from models.graph import GNN_graphpred
         net = GNN_graphpred(
             num_class,
             args.embed_dim,
