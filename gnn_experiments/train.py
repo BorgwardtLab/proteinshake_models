@@ -15,6 +15,7 @@ from torch_geometric import utils
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 import torch_geometric.transforms as T
+from proteinshake.utils import Compose
 
 from proteinshake import tasks as ps_tasks
 
@@ -272,6 +273,7 @@ def main():
         if args.dataset == 'ligand_affinity':
             args.other_dim = dset[0].other_x.shape[-1]
     elif args.representation == 'voxel':
+        from transforms.voxel import VoxelRotationAugment
         if args.dataset == 'ec':
             from transforms.voxel import VoxelEnzymeClassTransform as Transform
             from models.voxel import VoxelNet_EnzymeClass as VoxelNet
@@ -279,7 +281,7 @@ def main():
             from transforms.voxel import VoxelLigandAffinityTransform as Transform
             from models.voxel import VoxelNet_LigandAffinity as VoxelNet
         dset = dset.to_voxel(gridsize=(20,20,20), voxelsize=10).torch(
-            transform=Transform(task, y_transform=y_transform)
+            transform=Compose([VoxelRotationAugment(),Transform(task, y_transform=y_transform)])
         )
         if args.dataset == 'ligand_affinity':
             args.other_dim = dset[0][2].shape[-1]

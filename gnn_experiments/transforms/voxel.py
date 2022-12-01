@@ -1,5 +1,15 @@
 import torch
 
+class VoxelRotationAugment():
+
+    def __call__(self, args):
+        data, protein_dict = args
+        rnd = int(torch.randint(0,2+1,(1,)))
+        rot = int(torch.randint(1,3+1,(1,)))
+        rotation_plane = {0:[0,1],1:[1,2],2:[0,2]}[rnd]
+        data = torch.rot90(data,k=rot,dims=rotation_plane)
+        return data, protein_dict
+
 class VoxelMaskingTransform():
 
     def __call__(self, args, mask_ratio=0.15):
