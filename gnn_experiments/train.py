@@ -83,6 +83,9 @@ def load_args():
         args.num_layers = 2
         args.outdir = '../logs_debug'
 
+    if args.dataset == 'binding_site':
+        args.pooling = None
+
     args.save_logs = False
     if args.outdir != '':
         args.save_logs = True
@@ -121,6 +124,10 @@ class GNNPredictor(pl.LightningModule):
             self.main_metric = 'acc'
             self.criterion = nn.CrossEntropyLoss()
             self.best_val_score = 0.0
+        elif task.task_type == 'binary-classification':
+            self.main_metric = 'auc'
+            self.criterion = nn.BCEWithLogitsLoss()
+            self.best_val_score = 0.0
         elif task.task_type == 'regression':
             self.main_metric = 'neg_mse'
             #self.criterion = nn.MSELoss()
@@ -142,8 +149,12 @@ class GNNPredictor(pl.LightningModule):
         loss = self.criterion(y_hat, y)
 
         if 'classification' in self.task.task_type:
-            acc = (y_hat.detach().argmax(dim=-1) == y).float().mean().item()
-            self.log("train_acc", acc, on_step=False, on_epoch=True, batch_size=1, prog_bar=True)
+            if 'binary' in self.task.task_type:
+                acc = ((y_hat.detach() > 0).float() == batch.y).float().mean().item()
+                self.log("train_acc", acc, on_step=False, on_epoch=True, batch_size=1, prog_bar=True)
+            else:
+                acc = (y_hat.detach().argmax(dim=-1) == batch.y).float().mean().item()
+                self.log("train_acc", acc, on_step=False, on_epoch=True, batch_size=1, prog_bar=True)
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1)
 
         return loss
@@ -237,6 +248,10 @@ def main():
         num_class = 1
         args.pair_prediction = True
         args.same_type = False
+    elif args.dataset == 'binding_site':
+        task = ps_tasks.BindingSitePredictionTask(root=datapath)
+        dset = task.dataset
+        num_class = 1
 
     else:
         raise ValueError("not implemented!")

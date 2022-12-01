@@ -42,6 +42,8 @@ class TrainingAttr(object):
         new_data.edge_index = data.edge_index
         new_data.edge_attr = data.edge_attr
         new_data.y = self.task.target(protein_dict)
+        if 'binary' in self.task.task_type:
+            new_data.y = new_data.y.view(-1, 1).float()
         if self.task.task_type == 'regression':
             new_data.y = torch.tensor(new_data.y).view(-1, 1)
             if self.y_transform is not None:

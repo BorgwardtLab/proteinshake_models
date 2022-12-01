@@ -218,6 +218,8 @@ class GNN_graphpred(nn.Module):
             self.pooling = gnn.global_add_pool
         elif global_pool == 'max':
             self.pooling = gnn.global_max_pool
+        elif global_pool is None:
+            self.pooling = None
 
         self.pair_prediction = pair_prediction
         self.same_type = same_type
@@ -252,7 +254,8 @@ class GNN_graphpred(nn.Module):
     def forward(self, data, other_data=None):
         bsz = len(data.ptr) - 1
         output = self.encoder(data)
-        output = self.pooling(output, data.batch)
+        if self.pooling is not None:
+            output = self.pooling(output, data.batch)
 
         if self.pair_prediction:
             assert other_data is not None, "other_data should be provided!"
