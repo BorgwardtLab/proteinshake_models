@@ -240,14 +240,14 @@ def main():
         task = ps_tasks.LigandAffinityTask(root=datapath)
         # normalize y
         dset = task.dataset
-        if args.scale:
-            proteins, size = dset.proteins()
-            from sklearn.preprocessing import StandardScaler
-            all_y = np.asarray([task.target(protein_dict) for protein_dict in proteins])[task.train_ind]
-            y_transform = StandardScaler().fit(all_y.reshape(-1, 1))
         num_class = 1
         args.pair_prediction = True
         args.same_type = False
+        if args.scale:
+            from sklearn.preprocessing import StandardScaler
+            all_y = np.asarray([
+                task.target(protein_dict) for protein_dict in dset.proteins()[0]])[task.train_ind]
+            y_transform = StandardScaler().fit(all_y.reshape(-1, 1))
     elif args.dataset == 'binding_site':
         task = ps_tasks.BindingSitePredictionTask(root=datapath)
         dset = task.dataset

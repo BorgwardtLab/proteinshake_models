@@ -39,7 +39,7 @@ class VoxelNet_Pretraining(nn.Module):
 
     def save(self, path, args):
         torch.save(
-            {'args': args, 'base_state_dict': self.base.state_dict(), 'head_state_dict': self.head.state_dict()},
+            {'args': args, 'state_dict': self.base.state_dict(), 'head_state_dict': self.head.state_dict()},
             path
         )
 
@@ -63,7 +63,7 @@ class VoxelNet_EnzymeClass(nn.Module):
 
     def save(self, path, args):
         torch.save(
-            {'args': args, 'base_state_dict': self.base.state_dict(), 'head_state_dict': self.head.state_dict()},
+            {'args': args, 'state_dict': self.base.state_dict(), 'head_state_dict': self.head.state_dict()},
             path
         )
 
@@ -88,6 +88,6 @@ class VoxelNet_LigandAffinity(nn.Module):
 
     def save(self, path, args):
         torch.save(
-            {'args': args, 'base_state_dict': self.base.state_dict(), 'head_state_dict': self.head.state_dict()},
+            {'args': args, 'state_dict': self.base.state_dict(), 'head_state_dict': self.head.state_dict()},
             path
         )

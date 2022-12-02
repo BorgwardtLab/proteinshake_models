@@ -200,7 +200,7 @@ class NodeClassifier(nn.Module):
 
     def save(self, path, args):
         torch.save(
-            {'args': args, 'base_state_dict': self.base.state_dict(), 'head_state_dict': self.head.state_dict()},
+            {'args': args, 'state_dict': self.base.state_dict(), 'head_state_dict': self.head.state_dict()},
             path
         )
 
@@ -279,7 +279,7 @@ class GNN_graphpred(nn.Module):
             )
 
     def from_pretrained(self, model_path):
-        self.encoder.load_state_dict(torch.load(model_path)['base_state_dict'])
+        self.encoder.load_state_dict(torch.load(model_path)['state_dict'])
         print(f"Model loaded from {model_path}")
 
     def forward(self, data, other_data = None):
