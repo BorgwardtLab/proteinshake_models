@@ -1,6 +1,7 @@
 import math
 import torch
 from torch_geometric.data import Data
+from torch import nn
 
 
 class OneHotToIndex(object):
@@ -13,31 +14,7 @@ class ResidueIdx(object):
         data.residue_idx = torch.arange(data.num_nodes)
         return data
 
-class UsedAttr(object):
-    def __call__(self, data):
-        data, _ = data
-        new_data = Data()
-        new_data.x = data.x
-        new_data.residue_idx = torch.arange(data.num_nodes)#data.residue_number - 1
-        new_data.edge_index = data.edge_index
-        new_data.edge_attr = data.edge_attr
-        return new_data
 
-class MaskNode(object):
-    def __init__(self, num_node_types, mask_rate=0.15):
-        self.num_node_types = num_node_types
-        self.mask_rate = mask_rate
-
-    def __call__(self, data):
-        num_nodes = data.num_nodes
-        subset_mask = torch.rand(num_nodes) < self.mask_rate
-
-        data.masked_node_indices = subset_mask
-        data.masked_node_label = data.x[subset_mask]
-        # data.x = data.x.clone()
-        data.x[subset_mask] = self.num_node_types
-
-        return data
 
 def get_cosine_schedule_with_warmup(optimizer, warmup_epochs, max_epochs):
     def lr_lambda(epoch):
@@ -46,3 +23,35 @@ def get_cosine_schedule_with_warmup(optimizer, warmup_epochs, max_epochs):
         progress = (epoch - warmup_epochs) / max(1, max_epochs - warmup_epochs)
         return 0.5 * (1.0 + math.cos(math.pi * progress))
     return torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
+
+
+class Aggregator(nn.Module):
+    def __init__(self, embed_dim=256, aggregation='concat', normalize=False):
+        super().__init__()
+        self.aggregation = aggregation
+        self.normalize = normalize
+
+        if aggregation == 'concat':
+            self.aggregator = nn.Sequential(
+                nn.Linear(2 * embed_dim, embed_dim),
+                nn.ReLU(True),
+                nn.Linear(embed_dim, embed_dim)
+            )
+        elif aggregation == 'dot' or aggregation == 'sum':
+            self.aggregator = nn.Sequential(
+                nn.Linear(embed_dim, embed_dim),
+                nn.ReLU(True),
+                nn.Linear(embed_dim, embed_dim)
+            )
+
+    def forward(self, x1, x2):
+        if self.normalize:
+            x1 = F.normalize(x1, dim=-1)
+            x2 = F.normalize(x2, dim=-1)
+        if self.aggregation == 'concat':
+            x = torch.cat((x1, x2), dim=-1)
+        elif self.aggregation == 'dot':
+            x = x1 * x2
+        elif self.aggregation == 'sum':
+            x = x1 + x2
+        return self.aggregator(x)

@@ -118,7 +118,9 @@ class PointNet_Pretrain(PointNet):
         x = torch.cat([x,g.unsqueeze(-1).repeat(1,1,x.shape[-1])], dim=1)
         return self.output(x).permute(0,2,1)
 
-    def transform(self, coords, labels, protein_dict):
+    def transform(self, data, protein_dict):
+        coords, labels = data[:,:3], data[:,3]
+        labels = torch.eye(20)[labels.long()].float()
         L = 1024
         coords = torch.nn.functional.pad(coords[:L], (0,0,0,max(0,L-coords.shape[0])))
         labels = torch.nn.functional.pad(labels[:L], (0,0,0,max(0,L-labels.shape[0])))
@@ -135,20 +137,22 @@ class PointNet_Pretrain(PointNet):
         y_true = torch.argmax(labels[mask], -1).cuda()
         return torch.nn.functional.cross_entropy(y_pred, y_true)
 
-    def metric(self, batch, y_pred):
+    def predict(self, batch):
+        y_pred = self.forward(batch)
         coords, labels, masked, mask = batch
         y_pred = torch.argmax(y_pred[mask], -1)
         y_true = torch.argmax(labels[mask], -1).cuda()
-        return torch.sum(y_pred == y_true) / y_true.shape[0]
+        return y_true, y_pred
 
 
 class PointNet_EC(PointNet):
 
-    def __init__(self, hidden_dim=128, kernel_size=3):
+    def __init__(self, task, hidden_dim=128, kernel_size=3):
         super().__init__()
-        classes = 7
+        self.task = task
+        classes = task.num_classes
         self.output = nn.Sequential(
-            nn.Linear(d3, 7),
+            nn.Linear(d3, classes),
         )
 
     def forward(self, batch):
@@ -160,18 +164,58 @@ class PointNet_EC(PointNet):
         x = nn.Flatten(1)(x)
         return self.output(x)
 
-    def transform(self, coords, labels, protein_dict):
+    def transform(self, data, protein_dict):
+        coords, labels = data[:,:3], data[:,3]
+        labels = torch.eye(20)[labels.long()].float()
         L = 1024
         coords = torch.nn.functional.pad(coords[:L], (0,0,0,max(0,L-coords.shape[0])))
         labels = torch.nn.functional.pad(labels[:L], (0,0,0,max(0,L-labels.shape[0])))
-        return coords, labels, torch.eye(7)[int(protein_dict['protein']['EC'].split('.')[0])-1].float()
+        ec = torch.eye(self.task.num_classes)[self.task.target(protein_dict)].float()
+        return coords, labels, ec
 
     def criterion(self, batch, y_pred):
         coords, labels, ec = batch
         return torch.nn.functional.cross_entropy(y_pred, torch.argmax(ec,-1).cuda())
 
-    def metric(self, batch, y_pred):
+    def predict(self, batch):
+        y_pred = self.forward(batch)
         coords, labels, ec = batch
-        y_pred = torch.argmax(y_pred,-1)
-        ec = torch.argmax(ec,-1).cuda()
-        return torch.sum(y_pred == ec) / ec.shape[0]
+        y_pred = torch.argmax(y_pred,-1).cpu()
+        y_true = torch.argmax(ec,-1)
+        return y_true, y_pred
+
+class PointNet_LA(PointNet):
+
+    def __init__(self, task, hidden_dim=128, kernel_size=3):
+        super().__init__()
+        self.task = task
+        self.output = nn.Sequential(
+            nn.Linear(d3, 1),
+        )
+
+    def forward(self, batch):
+        coords, labels, ec = batch
+        coords = coords.permute(0,2,1)
+        labels = labels.permute(0,2,1)
+        x, matrix3x3, matrix64x64 = self.base(coords.cuda(), labels.cuda())
+        x = nn.MaxPool1d(x.size(-1))(x)
+        x = nn.Flatten(1)(x)
+        return self.output(x)
+
+    def transform(self, data, protein_dict):
+        coords, labels = data[:,:3], data[:,3]
+        labels = torch.eye(20)[labels.long()].float()
+        L = 1024
+        coords = torch.nn.functional.pad(coords[:L], (0,0,0,max(0,L-coords.shape[0])))
+        labels = torch.nn.functional.pad(labels[:L], (0,0,0,max(0,L-labels.shape[0])))
+        la = torch.tensor(self.task.target(protein_dict)).float()
+        return coords, labels, la
+
+    def criterion(self, batch, y_pred):
+        coords, labels, ec = batch
+        return torch.nn.functional.mse_loss(y_pred.squeeze(-1), ec.cuda())
+
+    def predict(self, batch):
+        y_pred = self.forward(batch)
+        coords, labels, y_true = batch
+        return y_true, y_pred.squeeze(-1)

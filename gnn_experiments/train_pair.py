@@ -18,7 +18,7 @@ import torch_geometric.transforms as T
 
 from proteinshake import tasks as ps_tasks
 
-from models import GNN, GNN_graphpred, NodeClassifier, GNN_TYPES
+from models.graph import GNN_TYPES
 from data_utils import PPIDataset
 from utils import ResidueIdx
 from utils import get_cosine_schedule_with_warmup
@@ -33,6 +33,9 @@ def load_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
+
+    parser.add_argument('--representation', type=str, default='graph',
+                        help='representation (graph/voxel/point)')
     parser.add_argument('--seed', type=int, default=0,
                         help='random seed')
     parser.add_argument('--dataset', type=str, default='tm',
@@ -107,21 +110,7 @@ def load_args():
         torch.cuda.manual_seed_all(args.seed)
     return args
 
-class AttrParser(object):
-    def __init__(self, task, y_transform=None):
-        self.task = task
-        self.y_transform = y_transform
-
-    def __call__(self, data):
-        data, protein_dict = data
-        new_data = Data()
-        new_data.x = data.x
-        new_data.residue_idx = torch.arange(data.num_nodes)
-        new_data.edge_index = data.edge_index
-        new_data.edge_attr = data.edge_attr
-        return new_data
-
-class GNNPredictor(pl.LightningModule):
+class PairPredictor(pl.LightningModule):
     def __init__(self, model, args, task, y_transform=None):
         super().__init__()
         self.model = model
@@ -149,8 +138,7 @@ class GNNPredictor(pl.LightningModule):
         return self.y_transform.inverse_transform(y_true), self.y_transform.inverse_transform(y_pred)
 
     def training_step(self, batch, batch_idx):
-        data1, data2, y = batch
-        y_hat = self.model(data1, data2)
+        y_hat, y = self.model.step(batch)
         loss = self.criterion(y_hat, y)
 
         if 'classification' in self.task.task_type:
@@ -161,8 +149,7 @@ class GNNPredictor(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        data1, data2, y = batch
-        y_hat = self.model(data1, data2)
+        y_hat, y = self.model.step(batch)
         loss = self.criterion(y_hat, y)
 
         self.log('val_loss', loss, batch_size=len(y))
@@ -187,8 +174,7 @@ class GNNPredictor(pl.LightningModule):
         return scores
 
     def test_step(self, batch, batch_idx):
-        data1, data2, y = batch
-        y_hat = self.model(data1, data2)
+        y_hat, y = self.model.step(batch)
         loss = self.criterion(y_hat, y)
         return {'y_pred': y_hat, 'y_true': y}
 
@@ -225,6 +211,7 @@ class GNNPredictor(pl.LightningModule):
         plt.savefig(self.logger.log_dir + '/plot.png')
         plt.close()
 
+
 def main():
     global args
     args = load_args()
@@ -236,26 +223,37 @@ def main():
     args.other_dim = None
     if args.dataset == 'tm':
         task = ps_tasks.RetrieveTask(root=datapath)
-        dset = task.dataset.to_graph(eps=args.graph_eps).pyg(
-            # transform=AttrParser(task)
-        )
+        dset = task.dataset
         num_class = 1
         args.pair_prediction = True
         args.same_type = True
     else:
         raise ValueError("not implemented!")
 
-    # Filter proteins longer than 3000
-    protein_len_list = np.asarray([data[0].num_nodes for data in dset])
-    print("protein length less or equal to 3000 is {}%".format(
-        np.sum(protein_len_list <= 3000) / len(protein_len_list) * 100))
-    train_mask = np.all(protein_len_list[task.train_ind] <= 3000, axis=1)
-    val_mask = np.all(protein_len_list[task.val_ind] <= 3000, axis=1)
-    test_mask = np.all(protein_len_list[task.test_ind] <= 3000, axis=1)
 
-    train_dset = PPIDataset(dset, task, split='train', filter_mask=train_mask, transform=AttrParser(task))
-    val_dset = PPIDataset(dset, task, split='val', filter_mask=val_mask, transform=AttrParser(task))
-    test_dset = PPIDataset(dset, task, split='test', filter_mask=test_mask, transform=AttrParser(task))
+    if args.representation == 'graph':
+        from transforms.graph import PretrainingAttr as Transform
+        from models.graph import GNN_graphpred
+        encoder = GNN_graphpred(
+            num_class,
+            args.embed_dim,
+            args.num_layers,
+            args.dropout,
+            args.gnn_type,
+            args.use_edge_attr,
+            args.pe,
+            args.pooling,
+            args.out_head,
+            args.pair_prediction,
+            args.same_type,
+            args.other_dim,
+            args.aggregation
+        )
+        dset = dset.to_graph(eps=args.graph_eps).pyg()
+
+    train_dset = PPIDataset(dset, task, split='train', filter_mask=None, transform=Transform())
+    val_dset = PPIDataset(dset, task, split='val', filter_mask=None, transform=Transform())
+    test_dset = PPIDataset(dset, task, split='test', filter_mask=None, transform=Transform())
     print(f"Dataset size: train {len(train_dset)}, val {len(val_dset)}, test {len(test_dset)}")
 
     y_transform = None
@@ -275,26 +273,12 @@ def main():
     test_loader = DataLoader(test_dset, batch_size=args.batch_size,
                              shuffle=False, num_workers=args.num_workers)
 
-    encoder = GNN_graphpred(
-        num_class,
-        args.embed_dim,
-        args.num_layers,
-        args.dropout,
-        args.gnn_type,
-        args.use_edge_attr,
-        args.pe,
-        args.pooling,
-        args.out_head,
-        args.pair_prediction,
-        args.same_type,
-        args.other_dim,
-        args.aggregation
-    )
+
 
     if args.pretrained is not None:
         encoder.from_pretrained(args.pretrained + '/model.pt')
 
-    model = GNNPredictor(encoder, args, task, y_transform)
+    model = PairPredictor(encoder, args, task, y_transform)
 
     logger = pl.loggers.CSVLogger(args.outdir, name='csv_logs')
     callbacks = [

@@ -15,8 +15,7 @@ import torch_geometric.transforms as T
 from proteinshake import datasets
 from proteinshake.utils import Compose
 
-from models import GNN, NodeClassifier, GNN_TYPES
-from utils import OneHotToIndex, MaskNode, UsedAttr
+from models.graph import GNN_TYPES
 from utils import get_cosine_schedule_with_warmup
 
 import pytorch_lightning as pl
@@ -27,6 +26,9 @@ def load_args():
         description='PyTorch implementation of pre-training on AlphaFold2',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
+
+    parser.add_argument('--representation', type=str, default='graph',
+                        help='representation (graph/voxel/point)')
 
     parser.add_argument('--seed', type=int, default=0,
                         help='random seed')
@@ -39,6 +41,7 @@ def load_args():
 
     # Model hyperparameters
     parser.add_argument('--num-layers', type=int, default=5, help="number of layers")
+    parser.add_argument('--kernel_size', type=int, default=3, help="kernel size (3DCNN)")
     parser.add_argument('--embed-dim', type=int, default=256, help="hidden dimensions")
     parser.add_argument('--dropout', type=float, default=0.0, help="dropout")
     parser.add_argument('--gnn-type', type=str, default='gin', choices=GNN_TYPES,
@@ -89,22 +92,17 @@ def load_args():
         torch.cuda.manual_seed_all(args.seed)
     return args
 
-class GNNMasking(pl.LightningModule):
-    def __init__(self, model, classifier, args):
+class Masking(pl.LightningModule):
+    def __init__(self, model, args):
         super().__init__()
         self.model = model
-        self.classifier = classifier
         self.args = args
         self.criterion = nn.CrossEntropyLoss()
 
     def training_step(self, batch, batch_idx):
-        node_true = batch.masked_node_label
-        node_repr = self.model(batch)
-        node_pred = self.classifier(node_repr[batch.masked_node_indices])
-
-        loss = self.criterion(node_pred, node_true)
-
-        acc = (node_pred.detach().argmax(dim=-1) == node_true).float().mean().item()
+        y_hat, y = self.model.step(batch)
+        loss = self.criterion(y_hat, y)
+        acc = (y_hat.detach().argmax(dim=-1) == y).float().mean().item()
         self.log("train_acc", acc, on_step=False, on_epoch=True, batch_size=1, prog_bar=True)
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1)
 
@@ -112,7 +110,7 @@ class GNNMasking(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(
-            itertools.chain(self.model.parameters(), self.classifier.parameters()),
+            self.model.parameters(),
             lr=self.args.lr,
             weight_decay=self.args.weight_decay
         )
@@ -126,25 +124,40 @@ def main():
     print(args)
 
     datapath = '../data/AlphaFold/{}'.format(args.organism)
-    dset = datasets.AlphaFoldDataset(
-        root=datapath, organism=args.organism).to_graph(eps=args.graph_eps).pyg(
-        transform=Compose([UsedAttr(), MaskNode(20, mask_rate=args.mask_rate)])
-    )
+    dset = datasets.AlphaFoldDataset(root=datapath, organism=args.organism)
+
+    if args.representation == 'graph':
+        from transforms.graph import PretrainingAttr, MaskNode
+        dset = dset.to_graph(eps=args.graph_eps).pyg(
+            transform=Compose([PretrainingAttr(), MaskNode(20, mask_rate=args.mask_rate)])
+        )
+        from models.graph import NodeClassifier
+        net = NodeClassifier(
+            args.embed_dim,
+            args.num_layers,
+            args.dropout,
+            args.gnn_type,
+            args.use_edge_attr,
+            args.pe
+        )
+    elif args.representation == 'voxel':
+        from transforms.voxel import VoxelMaskingTransform
+        dset = dset.to_voxel(gridsize=(20,20,20), voxelsize=10).torch(
+            transform=Compose([VoxelMaskingTransform()])
+        )
+        from models.voxel import VoxelNet_Pretraining
+        net = VoxelNet_Pretraining(
+            input_dim = 20,
+            hidden_dim = args.embed_dim,
+            num_layers = args.num_layers,
+            kernel_size = args.kernel_size,
+            dropout = args.dropout
+        )
+    elif args.representation == 'point':
+        pass
 
     data_loader = DataLoader(dset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
-
-    encoder = GNN(
-        args.embed_dim,
-        args.num_layers,
-        args.dropout,
-        args.gnn_type,
-        args.use_edge_attr,
-        args.pe
-    )
-
-    classifier = NodeClassifier(args.embed_dim)
-
-    model = GNNMasking(encoder, classifier, args)
+    model = Masking(net, args)
 
     logger = pl.loggers.CSVLogger(args.outdir, name='csv_logs')
     callbacks = [
@@ -168,7 +181,7 @@ def main():
     trainer.fit(model=model, train_dataloaders=data_loader)
 
     if args.save_logs:
-        encoder.save(args.outdir + '/model.pt', args)
+        net.save(args.outdir + '/model.pt', args)
 
     # sanity check for node masking
     # for data in data_loader:

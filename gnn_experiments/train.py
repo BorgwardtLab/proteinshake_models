@@ -15,10 +15,11 @@ from torch_geometric import utils
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 import torch_geometric.transforms as T
+from proteinshake.utils import Compose
 
 from proteinshake import tasks as ps_tasks
 
-from models import GNN, GNN_graphpred, NodeClassifier, GNN_TYPES
+from models.graph import GNN_TYPES
 from utils import ResidueIdx
 from utils import get_cosine_schedule_with_warmup
 from metrics import compute_metrics
@@ -32,6 +33,8 @@ def load_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
+    parser.add_argument('--representation', type=str, default='graph',
+                        help='representation (graph/voxel/point)')
     parser.add_argument('--seed', type=int, default=0,
                         help='random seed')
     parser.add_argument('--dataset', type=str, default='ec',
@@ -43,6 +46,7 @@ def load_args():
 
     # Model hyperparameters
     parser.add_argument('--num-layers', type=int, default=5, help="number of layers")
+    parser.add_argument('--kernel-size', type=int, default=3, help="kernel size")
     parser.add_argument('--embed-dim', type=int, default=256, help="hidden dimensions")
     parser.add_argument('--dropout', type=float, default=0.0, help="dropout")
     parser.add_argument('--gnn-type', type=str, default='gin', choices=GNN_TYPES,
@@ -110,32 +114,6 @@ def load_args():
         torch.cuda.manual_seed_all(args.seed)
     return args
 
-class AttrParser(object):
-    def __init__(self, task, y_transform=None):
-        self.task = task
-        self.y_transform = y_transform
-
-    def __call__(self, data):
-        data, protein_dict = data
-        new_data = Data()
-        new_data.x = data.x
-        new_data.residue_idx = torch.arange(data.num_nodes)
-        new_data.edge_index = data.edge_index
-        new_data.edge_attr = data.edge_attr
-        new_data.y = torch.tensor(self.task.target(protein_dict))
-        if 'binary' in self.task.task_type:
-            new_data.y = new_data.y.view(-1, 1).float()
-        if self.task.task_type == 'regression':
-            new_data.y = new_data.y.view(-1, 1)
-            if self.y_transform is not None:
-                new_data.y = torch.from_numpy(self.y_transform.transform(
-                    new_data.y).astype('float32'))
-        if isinstance(self.task, ps_tasks.LigandAffinityTask):
-            fp_maccs = torch.tensor(protein_dict['protein']['fp_maccs']).view(1, -1)
-            fp_morgan_r2 = torch.tensor(protein_dict['protein']['fp_morgan_r2']).view(1, -1)
-            new_data.other_x = torch.cat((fp_maccs, fp_morgan_r2), dim=-1).float()
-        return new_data
-
 class GNNPredictor(pl.LightningModule):
     def __init__(self, model, args, task, y_transform=None):
         super().__init__()
@@ -167,9 +145,8 @@ class GNNPredictor(pl.LightningModule):
         return self.y_transform.inverse_transform(y_true), self.y_transform.inverse_transform(y_pred)
 
     def training_step(self, batch, batch_idx):
-        other_x = batch.other_x if hasattr(batch, 'other_x') else None
-        y_hat = self.model(batch, other_x)
-        loss = self.criterion(y_hat, batch.y)
+        y_hat, y = self.model.step(batch)
+        loss = self.criterion(y_hat, y)
 
         if 'classification' in self.task.task_type:
             if 'binary' in self.task.task_type:
@@ -183,12 +160,11 @@ class GNNPredictor(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        other_x = batch.other_x if hasattr(batch, 'other_x') else None
-        y_hat = self.model(batch, other_x)
-        loss = self.criterion(y_hat, batch.y)
+        y_hat, y = self.model.step(batch)
+        loss = self.criterion(y_hat, y)
 
-        self.log('val_loss', loss, batch_size=len(batch.y))
-        return {'y_pred': y_hat, 'y_true': batch.y}
+        self.log('val_loss', loss, batch_size=len(y))
+        return {'y_pred': y_hat, 'y_true': y}
 
     def evaluate_epoch_end(self, outputs, stage='val'):
         all_preds = torch.vstack([out['y_pred'] for out in outputs])
@@ -209,10 +185,9 @@ class GNNPredictor(pl.LightningModule):
         return scores
 
     def test_step(self, batch, batch_idx):
-        other_x = batch.other_x if hasattr(batch, 'other_x') else None
-        y_hat = self.model(batch, other_x)
-        loss = self.criterion(y_hat, batch.y)
-        return {'y_pred': y_hat, 'y_true': batch.y}
+        y_hat, y = self.model.step(batch)
+        loss = self.criterion(y_hat, y)
+        return {'y_pred': y_hat, 'y_true': y}
 
     def test_epoch_end(self, outputs):
         scores = self.evaluate_epoch_end(outputs, 'test')
@@ -259,40 +234,85 @@ def main():
     y_transform = None
     if args.dataset == 'ec':
         task = ps_tasks.EnzymeCommissionTask(root=datapath)
-        dset = task.dataset.to_graph(eps=args.graph_eps).pyg(
-            transform=AttrParser(task)
-        )
+        dset = task.dataset
         num_class = task.num_classes
     elif args.dataset == 'ligand_affinity':
         task = ps_tasks.LigandAffinityTask(root=datapath)
-        dset = task.dataset.to_graph(eps=args.graph_eps).pyg(
-            transform=AttrParser(task)
-        )
+        # normalize y
+        dset = task.dataset
         num_class = 1
         args.pair_prediction = True
         args.same_type = False
-        args.other_dim = dset[0].other_x.shape[-1]
-        # normalize y
         if args.scale:
             from sklearn.preprocessing import StandardScaler
-            all_y = np.asarray([data.y.item() for data in Subset(dset, task.train_ind)])
+            all_y = np.asarray([
+                task.target(protein_dict) for protein_dict in dset.proteins()[0]])[task.train_ind]
             y_transform = StandardScaler().fit(all_y.reshape(-1, 1))
-            dset.transform = AttrParser(task, y_transform)
     elif args.dataset == 'binding_site':
         task = ps_tasks.BindingSitePredictionTask(root=datapath)
-        dset = task.dataset.to_graph(eps=args.graph_eps).pyg(
-            transform=AttrParser(task)
-        )
+        dset = task.dataset
         num_class = 1
+
     else:
         raise ValueError("not implemented!")
 
-    protein_len_list = np.asarray([data.num_nodes for data in dset])
+    protein_len_list = np.asarray([len(protein_dict['protein']['sequence']) for  protein_dict in dset.proteins()[0]])
     print("protein length less or equal to 3000 is {}%".format(
         np.sum(protein_len_list <= 3000) / len(protein_len_list) * 100))
     train_mask = protein_len_list[task.train_ind] <= 3000
     val_mask = protein_len_list[task.val_ind] <= 3000
     test_mask = protein_len_list[task.test_ind] <= 3000
+
+    if args.representation == 'graph':
+        from transforms.graph import TrainingAttr
+        dset = dset.to_graph(eps=args.graph_eps).pyg(
+            transform=TrainingAttr(task, y_transform)
+        )
+        if args.dataset == 'ligand_affinity':
+            args.other_dim = dset[0].other_x.shape[-1]
+        from models.graph import GNN_graphpred
+        net = GNN_graphpred(
+            num_class,
+            args.embed_dim,
+            args.num_layers,
+            args.dropout,
+            args.gnn_type,
+            args.use_edge_attr,
+            args.pe,
+            args.pooling,
+            args.out_head,
+            args.pair_prediction,
+            args.same_type,
+            args.other_dim,
+            args.aggregation,
+            args.aggregation_norm
+        )
+    elif args.representation == 'voxel':
+        from transforms.voxel import VoxelRotationAugment
+        if args.dataset == 'ec':
+            from transforms.voxel import VoxelEnzymeClassTransform as Transform
+            from models.voxel import VoxelNet_EnzymeClass as VoxelNet
+        elif args.dataset == 'ligand_affinity':
+            from transforms.voxel import VoxelLigandAffinityTransform as Transform
+            from models.voxel import VoxelNet_LigandAffinity as VoxelNet
+        dset = dset.to_voxel(gridsize=(20,20,20), voxelsize=10).torch(
+            transform=Compose([VoxelRotationAugment(),Transform(task, y_transform=y_transform)])
+        )
+        if args.dataset == 'ligand_affinity':
+            args.other_dim = dset[0][2].shape[-1]
+        net = VoxelNet(
+            input_dim = 20,
+            out_dim = num_class,
+            hidden_dim = args.embed_dim,
+            num_layers = args.num_layers,
+            kernel_size = args.kernel_size,
+            dropout = args.dropout,
+            other_dim = args.other_dim
+        )
+    elif args.representation == 'point':
+        pass
+
+
 
     train_loader = DataLoader(Subset(dset, np.asarray(task.train_ind)[train_mask]), batch_size=args.batch_size,
                               shuffle=True, num_workers=args.num_workers)
@@ -301,27 +321,12 @@ def main():
     test_loader = DataLoader(Subset(dset, np.asarray(task.test_ind)[test_mask]), batch_size=args.batch_size,
                               shuffle=False, num_workers=args.num_workers)
 
-    encoder = GNN_graphpred(
-        num_class,
-        args.embed_dim,
-        args.num_layers,
-        args.dropout,
-        args.gnn_type,
-        args.use_edge_attr,
-        args.pe,
-        args.pooling,
-        args.out_head,
-        args.pair_prediction,
-        args.same_type,
-        args.other_dim,
-        args.aggregation,
-        args.aggregation_norm
-    )
+
 
     if args.pretrained is not None:
-        encoder.from_pretrained(args.pretrained + '/model.pt')
+        net.from_pretrained(args.pretrained + '/model.pt')
 
-    model = GNNPredictor(encoder, args, task, y_transform)
+    model = GNNPredictor(net, args, task, y_transform)
 
     logger = pl.loggers.CSVLogger(args.outdir, name='csv_logs')
     callbacks = [
@@ -350,7 +355,7 @@ def main():
     trainer.test(model, test_loader)
     model.plot()
     if args.save_logs:
-        encoder.save(args.outdir + '/model.pt', args)
+        net.save(args.outdir + '/model.pt', args)
 
 
 if __name__ == "__main__":
