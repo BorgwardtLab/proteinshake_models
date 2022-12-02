@@ -239,12 +239,12 @@ def main():
     elif args.dataset == 'ligand_affinity':
         task = ps_tasks.LigandAffinityTask(root=datapath)
         # normalize y
-        if args.scale:
-            from sklearn.preprocessing import StandardScaler
-            all_y = np.asarray([task.target(protein_dict) for data, protein_dict in Subset(dset, task.train_ind)])
-            print(all_y)
-            y_transform = StandardScaler().fit(all_y.reshape(-1, 1))
         dset = task.dataset
+        if args.scale:
+            proteins, size = dset.proteins()
+            from sklearn.preprocessing import StandardScaler
+            all_y = np.asarray([task.target(protein_dict) for protein_dict in proteins])[task.train_ind]
+            y_transform = StandardScaler().fit(all_y.reshape(-1, 1))
         num_class = 1
         args.pair_prediction = True
         args.same_type = False
