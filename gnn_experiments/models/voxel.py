@@ -8,6 +8,15 @@ def mask_empty_voxels(x, data):
     x = torch.amax(x, dim=(1,2,3))
     return x
 
+class Template(nn.Module):
+
+    def save(self, path, args):
+        torch.save({'args': args, 'state_dict': self.base.state_dict(), 'head_state_dict': self.head.state_dict()}, path)
+
+    def from_pretrained(self, path):
+        self.base.load_state_dict(torch.load(path)['state_dict'])
+
+
 class VoxelNetBase(nn.Module):
 
     def __init__(self, input_dim, hidden_dim, num_layers, kernel_size, dropout):
@@ -27,7 +36,7 @@ class VoxelNetBase(nn.Module):
             x = layer(x)
         return x
 
-class VoxelNet_Pretraining(nn.Module):
+class VoxelNet_Pretraining(Template):
 
     def __init__(self, input_dim, hidden_dim, num_layers, kernel_size, dropout):
         super().__init__()
@@ -42,14 +51,10 @@ class VoxelNet_Pretraining(nn.Module):
         y = data[mask]
         return y_hat, torch.argmax(y, -1) # each voxel can have multiple amino acids, so the last dimension is a float value indicating the fraction of amino acid X in the voxel
 
-    def save(self, path, args):
-        torch.save(
-            {'args': args, 'state_dict': self.base.state_dict(), 'head_state_dict': self.head.state_dict()},
-            path
-        )
 
 
-class VoxelNet_EnzymeClass(nn.Module):
+
+class VoxelNet_EnzymeClass(Template):
 
     def __init__(self, input_dim, out_dim, hidden_dim, num_layers, kernel_size, dropout, other_dim):
         super().__init__()
@@ -72,7 +77,7 @@ class VoxelNet_EnzymeClass(nn.Module):
         )
 
 
-class VoxelNet_LigandAffinity(nn.Module):
+class VoxelNet_LigandAffinity(Template):
 
     def __init__(self, input_dim, out_dim, hidden_dim, num_layers, kernel_size, dropout, other_dim):
         super().__init__()
@@ -96,7 +101,7 @@ class VoxelNet_LigandAffinity(nn.Module):
         )
 
 
-class VoxelNet_BindingSite(nn.Module):
+class VoxelNet_BindingSite(Template):
 
     def __init__(self, input_dim, out_dim, hidden_dim, num_layers, kernel_size, dropout, other_dim):
         super().__init__()
@@ -119,7 +124,7 @@ class VoxelNet_BindingSite(nn.Module):
             path
         )
 
-class VoxelNet_Scop(nn.Module):
+class VoxelNet_Scop(Template):
 
     def __init__(self, input_dim, out_dim, hidden_dim, num_layers, kernel_size, dropout, other_dim):
         super().__init__()
@@ -138,7 +143,7 @@ class VoxelNet_Scop(nn.Module):
             path
         )
 
-class VoxelNet_Tm(nn.Module):
+class VoxelNet_Tm(Template):
 
     def __init__(self, input_dim, out_dim, hidden_dim, num_layers, kernel_size, dropout):
         super().__init__()

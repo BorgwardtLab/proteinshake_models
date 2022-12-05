@@ -86,21 +86,27 @@ def load_args():
     args.save_logs = False
     if args.outdir != '':
         args.save_logs = True
-        if args.pretrained is None:
-            outdir = args.outdir + '/{}'.format(args.dataset)
-            outdir = outdir + '/{}_{}'.format(args.lr, args.weight_decay)
-            outdir = outdir + '/{}_{}_{}_{}_{}_{}_{}_{}'.format(
-                args.pooling, args.out_head, args.gnn_type, args.num_layers,
-                args.embed_dim, args.dropout, args.use_edge_attr, args.pe
-            )
-        else:
-            outdir = args.pretrained + '/{}'.format(args.dataset)
-            outdir = outdir + '/{}_{}'.format(args.lr, args.weight_decay)
-            outdir = outdir + '/{}_{}_{}'.format(
-                args.pooling, args.out_head, args.dropout
-            )
-        if args.dataset in ['tm']:
-            outdir = outdir + '/{}'.format(args.aggregation)
+        if args.representation == 'graph':
+            if args.pretrained is None:
+                outdir = args.outdir + '/{}'.format(args.dataset)
+                outdir = outdir + '/{}_{}'.format(args.lr, args.weight_decay)
+                outdir = outdir + '/{}_{}_{}_{}_{}_{}_{}_{}'.format(
+                    args.pooling, args.out_head, args.gnn_type, args.num_layers,
+                    args.embed_dim, args.dropout, args.use_edge_attr, args.pe
+                )
+            else:
+                outdir = args.pretrained + '/{}'.format(args.dataset)
+                outdir = outdir + '/{}_{}'.format(args.lr, args.weight_decay)
+                outdir = outdir + '/{}_{}_{}'.format(
+                    args.pooling, args.out_head, args.dropout
+                )
+            if args.dataset in ['tm']:
+                outdir = outdir + '/{}'.format(args.aggregation)
+        elif args.representation == 'voxel':
+            if args.pretrained is None:
+                outdir = f'{args.outdir}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}'
+            else:
+                outdir = f'{args.pretrained}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}'
         os.makedirs(outdir, exist_ok=True)
         args.outdir = outdir
 

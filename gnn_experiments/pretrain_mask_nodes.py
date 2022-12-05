@@ -76,12 +76,10 @@ def load_args():
     args.save_logs = False
     if args.outdir != '':
         args.save_logs = True
-        outdir = args.outdir
-        outdir = outdir + '/{}_{}'.format(args.lr, args.weight_decay)
-        outdir = outdir + '/{}_{}_{}_{}_{}_{}_{}'.format(
-            args.mask_rate, args.gnn_type, args.num_layers,
-            args.embed_dim, args.dropout, args.use_edge_attr, args.pe
-        )
+        if args.representation == 'graph':
+            outdir = f'{args.outdir}/{args.lr}_{args.weight_decay}/{args.mask_rate}_{args.gnn_type}_{args.num_layers}_{args.embed_dim}_{args.dropout}_{args.use_edge_attr}_{args.pe}'
+        elif args.representation == 'voxel':
+            outdir = f'{args.outdir}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}'
         os.makedirs(outdir, exist_ok=True)
         args.outdir = outdir
 
