@@ -48,3 +48,12 @@ class VoxelEnzymeClassTransform():
     def __call__(self, args):
         data, protein_dict = args
         return data, torch.eye(self.task.num_classes)[self.task.target(protein_dict)].float()
+
+class VoxelScopTransform():
+
+    def __init__(self, task, y_transform=None):
+        self.task = task
+
+    def __call__(self, args):
+        data, protein_dict = args
+        return data, torch.eye(self.task.num_classes)[self.task.target(protein_dict)].float()

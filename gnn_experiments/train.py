@@ -150,10 +150,10 @@ class GNNPredictor(pl.LightningModule):
 
         if 'classification' in self.task.task_type:
             if 'binary' in self.task.task_type:
-                acc = ((y_hat.detach() > 0).float() == batch.y).float().mean().item()
+                acc = ((y_hat.detach() > 0).float() == y).float().mean().item()
                 self.log("train_acc", acc, on_step=False, on_epoch=True, batch_size=1, prog_bar=True)
             else:
-                acc = (y_hat.detach().argmax(dim=-1) == batch.y).float().mean().item()
+                acc = (y_hat.detach().argmax(dim=-1) == y).float().mean().item()
                 self.log("train_acc", acc, on_step=False, on_epoch=True, batch_size=1, prog_bar=True)
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1)
 
@@ -252,6 +252,10 @@ def main():
         task = ps_tasks.BindingSitePredictionTask(root=datapath)
         dset = task.dataset
         num_class = 1
+    elif args.dataset == 'scop':
+        task = ps_tasks.SCOPTask(root=datapath, scop_level='SCOP-CL')
+        dset = task.dataset
+        num_class = task.num_classes
 
     else:
         raise ValueError("not implemented!")
@@ -295,6 +299,9 @@ def main():
         elif args.dataset == 'ligand_affinity':
             from transforms.voxel import VoxelLigandAffinityTransform as Transform
             from models.voxel import VoxelNet_LigandAffinity as VoxelNet
+        elif args.dataset == 'scop':
+            from transforms.voxel import VoxelScopTransform as Transform
+            from models.voxel import VoxelNet_Scop as VoxelNet
         dset = dset.to_voxel(gridsize=(20,20,20), voxelsize=10).torch(
             transform=Compose([VoxelRotationAugment(),Transform(task, y_transform=y_transform)])
         )

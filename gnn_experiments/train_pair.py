@@ -57,6 +57,7 @@ def load_args():
     parser.add_argument('--out-head', type=str, default='linear', choices=['linear', 'mlp'])
     parser.add_argument('--pretrained', type=str, default=None, help='pretrained model path')
     parser.add_argument('--aggregation', type=str, default='concat', choices=['dot', 'concat', 'sum'])
+    parser.add_argument('--kernel-size', type=int, default=3, help="kernel size")
 
     # Optimization hyperparameters
     parser.add_argument('--epochs', type=int, default=100, help='number of epochs')
@@ -250,6 +251,18 @@ def main():
             args.aggregation
         )
         dset = dset.to_graph(eps=args.graph_eps).pyg()
+    elif args.representation == 'voxel':
+        from models.voxel import VoxelNet_Tm
+        Transform = lambda: None
+        encoder = VoxelNet_Tm(
+            input_dim = 20,
+            out_dim = 1,
+            hidden_dim = args.embed_dim,
+            num_layers = args.num_layers,
+            kernel_size = args.kernel_size,
+            dropout = args.dropout
+        )
+        dset = dset.to_voxel(voxelsize=10).torch()
 
     train_dset = PPIDataset(dset, task, split='train', filter_mask=None, transform=Transform())
     val_dset = PPIDataset(dset, task, split='val', filter_mask=None, transform=Transform())

@@ -8,7 +8,7 @@ def compute_metrics(y_true, y_score, task_type='classification, multi-class'):
             y_pred = y_score.argmax(-1)
             return {
                 'acc': metrics.accuracy_score(y_true, y_pred),
-                'acc_top2': metrics.top_k_accuracy_score(y_true, y_score, k=2),
+                'acc_top2': metrics.top_k_accuracy_score(y_true, y_score, k=2, labels=np.arange(y_score.shape[1])),
                 'precision': metrics.precision_score(y_true, y_pred, average='macro', zero_division=0),
                 'recall': metrics.recall_score(y_true, y_pred, average='macro', zero_division=0)
             }

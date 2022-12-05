@@ -1,6 +1,12 @@
 import torch
 import torch.nn as nn
 
+def mask_empty_voxels(x, data):
+    nonzero_mask = ~((data == 0).all(-1))
+    x = x.permute(0,2,3,4,1)
+    x[nonzero_mask] = 0.
+    x = torch.amax(x, dim=(1,2,3))
+    return x
 
 class VoxelNetBase(nn.Module):
 
@@ -25,7 +31,6 @@ class VoxelNet_Pretraining(nn.Module):
 
     def __init__(self, input_dim, hidden_dim, num_layers, kernel_size, dropout):
         super().__init__()
-        self.hidden_dim = hidden_dim
         self.base = VoxelNetBase(input_dim, hidden_dim, num_layers, kernel_size, dropout)
         self.head = nn.Linear(hidden_dim, 20)
 
@@ -49,7 +54,6 @@ class VoxelNet_EnzymeClass(nn.Module):
     def __init__(self, input_dim, out_dim, hidden_dim, num_layers, kernel_size, dropout, other_dim):
         super().__init__()
         self.base = VoxelNetBase(input_dim, hidden_dim, num_layers, kernel_size, dropout)
-        self.pool = nn.MaxPool3d(20)
         self.head = nn.Linear(hidden_dim, out_dim)
 
     def step(self, batch):
@@ -73,7 +77,6 @@ class VoxelNet_LigandAffinity(nn.Module):
     def __init__(self, input_dim, out_dim, hidden_dim, num_layers, kernel_size, dropout, other_dim):
         super().__init__()
         self.base = VoxelNetBase(input_dim, hidden_dim, num_layers, kernel_size, dropout)
-        self.pool = nn.MaxPool3d(20)
         self.head = nn.Linear(hidden_dim+other_dim, out_dim)
 
     def step(self, batch):
@@ -85,6 +88,70 @@ class VoxelNet_LigandAffinity(nn.Module):
         x = torch.cat([x,fingerprint], dim=-1)
         y_hat = self.head(x)
         return y_hat, torch.unsqueeze(y,1)
+
+    def save(self, path, args):
+        torch.save(
+            {'args': args, 'state_dict': self.base.state_dict(), 'head_state_dict': self.head.state_dict()},
+            path
+        )
+
+
+class VoxelNet_BindingSite(nn.Module):
+
+    def __init__(self, input_dim, out_dim, hidden_dim, num_layers, kernel_size, dropout, other_dim):
+        super().__init__()
+        self.base = VoxelNetBase(input_dim, hidden_dim, num_layers, kernel_size, dropout)
+        self.head = nn.Linear(hidden_dim, out_dim)
+
+    def step(self, batch):
+        data, y = batch
+        nonzero_mask = ~((data == 0).all(-1))
+        x = self.base(data).permute(0,2,3,4,1)
+        x = x[nonzero_mask]
+        #... unfinished
+        y = y[nonzero_mask]
+        y_hat = self.head(x)
+        return y_hat, torch.argmax(y, -1)
+
+    def save(self, path, args):
+        torch.save(
+            {'args': args, 'state_dict': self.base.state_dict(), 'head_state_dict': self.head.state_dict()},
+            path
+        )
+
+class VoxelNet_Scop(nn.Module):
+
+    def __init__(self, input_dim, out_dim, hidden_dim, num_layers, kernel_size, dropout, other_dim):
+        super().__init__()
+        self.base = VoxelNetBase(input_dim, hidden_dim, num_layers, kernel_size, dropout)
+        self.head = nn.Linear(hidden_dim, out_dim)
+
+    def step(self, batch):
+        data, y = batch
+        x = mask_empty_voxels(self.base(data), data)
+        y_hat = self.head(x)
+        return y_hat, torch.argmax(y, -1)
+
+    def save(self, path, args):
+        torch.save(
+            {'args': args, 'state_dict': self.base.state_dict(), 'head_state_dict': self.head.state_dict()},
+            path
+        )
+
+class VoxelNet_Tm(nn.Module):
+
+    def __init__(self, input_dim, out_dim, hidden_dim, num_layers, kernel_size, dropout):
+        super().__init__()
+        self.base = VoxelNetBase(input_dim, hidden_dim, num_layers, kernel_size, dropout)
+        self.head = nn.Linear(hidden_dim*2, out_dim)
+
+    def step(self, batch):
+        data1, data2, y = batch
+        x1 = mask_empty_voxels(self.base(data1), data1)
+        x2 = mask_empty_voxels(self.base(data2), data2)
+        x = torch.cat([x1,x2], dim=-1)
+        y_hat = self.head(x)
+        return y_hat, y
 
     def save(self, path, args):
         torch.save(
