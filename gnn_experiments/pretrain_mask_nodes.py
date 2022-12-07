@@ -50,6 +50,8 @@ def load_args():
     parser.add_argument('--pe', type=str, default=None, choices=['learned', 'sine'])
     parser.add_argument('--mask-rate', type=float, default=0.15,
                         help='masking ratio')
+    parser.add_argument('--voxelsize', type=int, default=10, help="size of the voxels")
+    parser.add_argument('--gridsize', type=int, default=10, help="size of the voxel grid")
 
     # Optimization hyperparameters
     parser.add_argument('--epochs', type=int, default=100, help='number of epochs')
@@ -79,7 +81,7 @@ def load_args():
         if args.representation == 'graph':
             outdir = f'{args.outdir}/{args.lr}_{args.weight_decay}/{args.mask_rate}_{args.gnn_type}_{args.num_layers}_{args.embed_dim}_{args.dropout}_{args.use_edge_attr}_{args.pe}'
         elif args.representation == 'voxel':
-            outdir = f'{args.outdir}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}'
+            outdir = f'{args.outdir}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}_{args.voxelsize}_{args.gridsize}'
         os.makedirs(outdir, exist_ok=True)
         args.outdir = outdir
 
@@ -140,7 +142,7 @@ def main():
         )
     elif args.representation == 'voxel':
         from transforms.voxel import VoxelMaskingTransform
-        dset = dset.to_voxel(gridsize=(20,20,20), voxelsize=10).torch(
+        dset = dset.to_voxel(gridsize=(args.gridsize, args.gridsize, args.gridsize), voxelsize=args.voxelsize).torch(
             transform=Compose([VoxelMaskingTransform()])
         )
         from models.voxel import VoxelNet_Pretraining

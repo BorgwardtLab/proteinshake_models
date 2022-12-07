@@ -58,6 +58,8 @@ def load_args():
     parser.add_argument('--pretrained', type=str, default=None, help='pretrained model path')
     parser.add_argument('--aggregation', type=str, default='dot', choices=['dot', 'concat', 'sum'])
     parser.add_argument('--aggregation-norm', action='store_true', help='normalize before aggregation')
+    parser.add_argument('--voxelsize', type=int, default=10, help="size of the voxels")
+    parser.add_argument('--gridsize', type=int, default=10, help="size of the voxel grid")
 
     # Optimization hyperparameters
     parser.add_argument('--epochs', type=int, default=100, help='number of epochs')
@@ -107,9 +109,9 @@ def load_args():
                 outdir = outdir + '/{}'.format(args.aggregation)
         elif args.representation == 'voxel':
             if args.pretrained is None:
-                outdir = f'{args.outdir}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}'
+                outdir = f'{args.outdir}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}_{args.voxelsize}_{args.gridsize}'
             else:
-                outdir = f'{args.pretrained}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}'
+                outdir = f'{args.pretrained}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}_{args.voxelsize}_{args.gridsize}'
 
         os.makedirs(outdir, exist_ok=True)
         args.outdir = outdir
@@ -309,7 +311,7 @@ def main():
         elif args.dataset == 'scop':
             from transforms.voxel import VoxelScopTransform as Transform
             from models.voxel import VoxelNet_Scop as VoxelNet
-        dset = dset.to_voxel(gridsize=(20,20,20), voxelsize=10).torch(
+        dset = dset.to_voxel(gridsize=(args.gridsize, args.gridsize, args.gridsize), voxelsize=args.voxelsize).torch(
             transform=Compose([VoxelRotationAugment(),Transform(task, y_transform=y_transform)])
         )
         if args.dataset == 'ligand_affinity':

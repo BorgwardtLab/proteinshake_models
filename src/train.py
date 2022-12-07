@@ -67,7 +67,7 @@ if args.pretrained:
 
 # create dataset
 if args.representation == 'voxel':
-    ds = task.dataset.to_voxel(gridsize=(20,20,20), voxelsize=10).torch(transform=model.transform)
+    ds = task.dataset.to_voxel(gridsize=(10,10,10), voxelsize=10).torch(transform=model.transform)
 if args.representation == 'point':
     ds = task.dataset.to_point().torch(transform=model.transform)
 
