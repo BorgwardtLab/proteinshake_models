@@ -1,74 +1,200 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from .aggregator import Aggregator, GlobalAvg1D, GlobalSum1D, GlobalMax1D
 
 # modified from: https://www.kaggle.com/code/balraj98/pointnet-for-3d-object-classification-pytorch/notebook
 
-d1 = 64
-d2 = 512
-d3 = 2048
+NUM_PROTEINS = 20
+NUM_PROTEINS_MASK = NUM_PROTEINS + 1
+
 
 class Tnet(nn.Module):
-    def __init__(self, k=3):
+    def __init__(self, input_dim=3, embed_dim=64):
         super().__init__()
-        self.k = k
-        self.conv1 = nn.Conv1d(k,d1,1)
-        self.conv2 = nn.Conv1d(d1,d2,1)
-        self.conv3 = nn.Conv1d(d2,d3,1)
-        self.fc1 = nn.Linear(d3,d2)
-        self.fc2 = nn.Linear(d2,d1)
-        self.fc3 = nn.Linear(d1,k*k)
+        self.input_dim = input_dim
+        self.conv1 = nn.Conv1d(input_dim, embed_dim, 1)
+        self.conv2 = nn.Conv1d(embed_dim, embed_dim * 2, 1)
+        self.conv3 = nn.Conv1d(embed_dim * 2, embed_dim * 8, 1)
+        self.fc1 = nn.Linear(embed_dim * 8, embed_dim * 2)
+        self.fc2 = nn.Linear(embed_dim * 2, embed_dim)
+        self.fc3 = nn.Linear(embed_dim, input_dim * input_dim)
 
-        self.bn1 = nn.BatchNorm1d(d1)
-        self.bn2 = nn.BatchNorm1d(d2)
-        self.bn3 = nn.BatchNorm1d(d3)
-        self.bn4 = nn.BatchNorm1d(d2)
-        self.bn5 = nn.BatchNorm1d(d1)
+        self.bn1 = nn.BatchNorm1d(embed_dim)
+        self.bn2 = nn.BatchNorm1d(embed_dim * 2)
+        self.bn3 = nn.BatchNorm1d(embed_dim * 8)
+        self.bn4 = nn.BatchNorm1d(embed_dim * 2)
+        self.bn5 = nn.BatchNorm1d(embed_dim)
+        self.d3 = embed_dim * 8
 
+        self.register_buffer("init", torch.eye(input_dim))
+        self.reset_parameters()
 
-    def forward(self, input):
-        # input.shape == (bs,n,3)
-        bs = input.size(0)
-        xb = F.relu(self.bn1(self.conv1(input)))
-        xb = F.relu(self.bn2(self.conv2(xb)))
-        xb = F.relu(self.bn3(self.conv3(xb)))
-        pool = nn.MaxPool1d(xb.size(-1))(xb)
-        flat = nn.Flatten(1)(pool)
-        xb = F.relu(self.bn4(self.fc1(flat)))
-        xb = F.relu(self.bn5(self.fc2(xb)))
-        init = torch.eye(self.k, requires_grad=True).repeat(bs,1,1).cuda()
-        matrix = self.fc3(xb).view(-1,self.k,self.k) + init
+    @torch.no_grad()
+    def reset_parameters(self):
+        nn.init.zeros_(self.fc3.weight)
+        nn.init.zeros_(self.fc3.bias)
+
+    def forward(self, x):
+        # x.shape == (bs, 3, n)
+        bs = x.shape[0]
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = F.relu(self.bn3(self.conv3(x)))
+        x = torch.max(x, 2, keepdim=True)[0]
+        x = x.view(-1, self.d3)
+        x = F.relu(self.bn4(self.fc1(x)))
+        x = F.relu(self.bn5(self.fc2(x)))
+        # init = torch.eye(self.input_dim, requires_grad=True).repeat(bs, 1, 1).to(x.device)
+        init = self.init.repeat(bs, 1, 1)
+        matrix = self.fc3(x).view(-1, self.input_dim, self.input_dim) + init
         return matrix
-
 
 class PointNetBase(nn.Module):
 
-    def __init__(self):
+    def __init__(self, input_dim=3, embed_dim=64):
         super().__init__()
-        self.input_transform = Tnet(k=3)
-        self.feature_transform = Tnet(k=d1)
-        self.conv1 = nn.Conv1d(3,d1-20,1)
+        self.input_transform = Tnet(input_dim=input_dim)
+        self.embedding = nn.Embedding(
+            NUM_PROTEINS_MASK + 1, embed_dim, padding_idx= NUM_PROTEINS_MASK)
+        self.conv_merge = nn.Conv1d(embed_dim, embed_dim, 1)
+        self.feature_transform = Tnet(input_dim=embed_dim)
+        self.conv1 = nn.Conv1d(3, embed_dim, 1)
+        self.conv2 = nn.Conv1d(embed_dim, 2 * embed_dim, 1)
+        self.conv3 = nn.Conv1d(2 * embed_dim, 8 * embed_dim, 1)
+        self.out_head = nn.Sequential(
+            nn.Conv1d(8 * embed_dim, 2 * embed_dim, 1),
+            nn.BatchNorm1d(2 * embed_dim),
+            nn.ReLU(True),
+            nn.Conv1d(2 * embed_dim, embed_dim, 1),
+            nn.BatchNorm1d(embed_dim),
+        )
 
-        self.conv2 = nn.Conv1d(64,d2,1)
-        self.conv3 = nn.Conv1d(d2,d3,1)
+        self.bn_merge = nn.BatchNorm1d(embed_dim)
+        self.bn1 = nn.BatchNorm1d(embed_dim)
+        self.bn2 = nn.BatchNorm1d(embed_dim * 2)
+        self.bn3 = nn.BatchNorm1d(embed_dim * 8)
+
+        self.register_buffer("ident1", torch.eye(input_dim).view(1, input_dim, input_dim))
+        self.register_buffer("ident2", torch.eye(embed_dim).view(1, embed_dim, embed_dim))
+        self.regularizer_loss_ = None
+
+    def forward(self, x, labels):
+        matrix3x3 = self.input_transform(x)
+        x = x.transpose(1, 2)
+        x = torch.bmm(x, matrix3x3).transpose(1, 2)
+        x = F.relu(self.bn1(self.conv1(x)))
+
+        labels = self.embedding(labels).transpose(1, 2)
+        x = F.relu(self.bn_merge(self.conv_merge(x + labels)))
+        matrix64x64 = self.feature_transform(x)
+        x = x.transpose(1, 2)
+        x = torch.bmm(x, matrix64x64).transpose(1, 2)
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = self.bn3(self.conv3(x))
+        x = self.out_head(F.relu(x)).transpose(1, 2)
+        self.regularizer_loss_ = self.regularizer(matrix3x3, matrix64x64)
+        return x
+
+    def regularizer(self, matrix3x3, matrix64x64):
+        loss1 = F.mse_loss(torch.bmm(
+            matrix3x3, matrix3x3.transpose(1, 2)), self.ident1.expand_as(matrix3x3))
+        loss2 = F.mse_loss(torch.bmm(
+            matrix64x64, matrix64x64.transpose(1, 2)), self.ident2.expand_as(matrix64x64))
+        return loss1 + loss2
+
+    def regularizer_loss(self, alpha=0.001):
+        return alpha * self.regularizer_loss_
 
 
-        self.bn1 = nn.BatchNorm1d(d1-20)
-        self.bn2 = nn.BatchNorm1d(d2)
-        self.bn3 = nn.BatchNorm1d(d3)
+class PointNet_pred(nn.Module):
+    def __init__(self, num_class, embed_dim=64, global_pool='max', out_head='linear',
+                 pair_prediction=False, same_type=False, other_dim=1024,
+                 aggregation='dot'):
+        super().__init__()
+        self.num_class = num_class
+        self.encoder = PointNetBase(embed_dim=embed_dim)
 
+        self.pooling = None
+        if global_pool == 'max':
+            self.pooling = GlobalMax1D()
+        elif global_pool == 'mean':
+            self.pooling = GlobalAvg1D()
+        elif global_pool == 'sum':
+            self.pooling = GlobalSum1D()
 
-    def forward(self, input, labels):
-        matrix3x3 = self.input_transform(input)
-        xb = torch.bmm(torch.transpose(input,1,2), matrix3x3).transpose(1,2)
-        xb = F.relu(self.bn1(self.conv1(xb)))
-        xb = torch.cat([xb,labels], dim=1)
-        matrix64x64 = self.feature_transform(xb)
-        xb = torch.bmm(torch.transpose(xb,1,2), matrix64x64).transpose(1,2)
-        xb = F.relu(self.bn2(self.conv2(xb)))
-        xb = self.bn3(self.conv3(xb))
-        return xb, matrix3x3, matrix64x64
+        self.pair_prediction = pair_prediction
+        self.same_type = same_type
+        self.aggregation = aggregation
+        if pair_prediction:
+            if not same_type:
+                self.other_encoder = nn.Sequential(
+                    nn.Linear(other_dim, embed_dim),
+                    nn.BatchNorm1d(embed_dim),
+                    nn.ReLU(True),
+                    nn.Linear(embed_dim, embed_dim),
+                    nn.BatchNorm1d(embed_dim),
+                )
+            self.aggregator = Aggregator(embed_dim, aggregation)
 
+        out_dim = embed_dim
+        if out_head == 'linear':
+            self.classifier = nn.Linear(out_dim, num_class)
+        else:
+            self.classifier = nn.Sequential(
+                nn.Linear(out_dim, out_dim // 2),
+                nn.ReLU(True),
+                nn.Linear(out_dim // 2, out_dim // 4),
+                nn.ReLU(True),
+                nn.Linear(out_dim // 4, num_class)
+            )
+
+    def forward(self, data, other_data=None):
+        x, labels, mask = data.coords, data.labels, data.mask
+        output = self.encoder(x, labels)
+        if self.pooling is not None:
+            output = self.pooling(output, mask)
+        else:
+            output = output[mask]
+
+        if self.pair_prediction:
+            assert other_data is not None, "other_data should be provided!"
+            if self.same_type:
+                other_x, other_labels, other_mask = (
+                    other_data.coords, other_data.labels, other_data.mask
+                )
+                other_output = self.encoder(other_x, other_labels)
+                other_output = self.pooling(other_output, other_mask)
+            else:
+                other_output = self.other_encoder(other_data)
+            output = self.aggregator(output, other_output)
+
+        return self.classifier(output)
+
+    def regularizer_loss(self, alpha=0.0001):
+        return self.encoder.regularizer_loss(alpha)
+
+    def step(self, batch):
+        if self.pair_prediction:
+            if self.same_type:
+                data, other_x, y = batch
+            else:
+                data, other_x, y = batch, batch.other_x, batch.y
+        else:
+            data, other_x, y = batch, None, batch.y
+        y_hat = self(data, other_x)
+        # y = y.view(-1, 1) if self.num_class == 1 else y
+        return y_hat, y
+
+    def save(self, model_path, args):
+        torch.save(
+            {'args': args, 'state_dict': self.state_dict()},
+            model_path
+        )
+
+    def from_pretrained(self, model_path):
+        self.encoder.load_state_dict(torch.load(model_path)['state_dict'])
+        print(f"Model loaded from {model_path}")
 
 class PointNet_Pretraining(nn.Module):
 
@@ -91,39 +217,39 @@ class PointNet_Pretraining(nn.Module):
         return self.head(x).permute(0,2,1)
 
 
-class PointNet_EnzymeClass(nn.Module):
+# class PointNet_EnzymeClass(nn.Module):
 
-    def __init__(self):
-        super().__init__()
-        self.base = PointNetBase()
-        self.head = nn.Sequential(
-            nn.Linear(d3, 7),
-        )
+#     def __init__(self):
+#         super().__init__()
+#         self.base = PointNetBase()
+#         self.head = nn.Sequential(
+#             nn.Linear(d3, 7),
+#         )
 
-    def forward(self, batch):
-        coords, labels, ec = batch
-        coords = coords.permute(0,2,1)
-        labels = labels.permute(0,2,1)
-        x, matrix3x3, matrix64x64 = self.base(coords.cuda(), labels.cuda())
-        x = nn.MaxPool1d(x.size(-1))(x)
-        x = nn.Flatten(1)(x)
-        return self.output(x)
+#     def forward(self, batch):
+#         coords, labels, ec = batch
+#         coords = coords.permute(0,2,1)
+#         labels = labels.permute(0,2,1)
+#         x, matrix3x3, matrix64x64 = self.base(coords.cuda(), labels.cuda())
+#         x = nn.MaxPool1d(x.size(-1))(x)
+#         x = nn.Flatten(1)(x)
+#         return self.output(x)
 
 
-class PointNet_LigandAffinity(PointNet):
+# class PointNet_LigandAffinity(PointNet):
 
-    def __init__(self, task, hidden_dim=128, kernel_size=3):
-        super().__init__()
-        self.task = task
-        self.head = nn.Sequential(
-            nn.Linear(d3, 1),
-        )
+#     def __init__(self, task, hidden_dim=128, kernel_size=3):
+#         super().__init__()
+#         self.task = task
+#         self.head = nn.Sequential(
+#             nn.Linear(d3, 1),
+#         )
 
-    def forward(self, batch):
-        coords, labels, ec = batch
-        coords = coords.permute(0,2,1)
-        labels = labels.permute(0,2,1)
-        x, matrix3x3, matrix64x64 = self.base(coords.cuda(), labels.cuda())
-        x = nn.MaxPool1d(x.size(-1))(x)
-        x = nn.Flatten(1)(x)
-        return self.output(x)
+#     def forward(self, batch):
+#         coords, labels, ec = batch
+#         coords = coords.permute(0,2,1)
+#         labels = labels.permute(0,2,1)
+#         x, matrix3x3, matrix64x64 = self.base(coords.cuda(), labels.cuda())
+#         x = nn.MaxPool1d(x.size(-1))(x)
+#         x = nn.Flatten(1)(x)
+#         return self.output(x)

@@ -58,6 +58,7 @@ def load_args():
     parser.add_argument('--pretrained', type=str, default=None, help='pretrained model path')
     parser.add_argument('--aggregation', type=str, default='dot', choices=['dot', 'concat', 'sum'])
     parser.add_argument('--aggregation-norm', action='store_true', help='normalize before aggregation')
+    parser.add_argument('--alpha', type=float, default=0.001, help="regularization coef for point clouds")
 
     # Optimization hyperparameters
     parser.add_argument('--epochs', type=int, default=100, help='number of epochs')
@@ -82,6 +83,9 @@ def load_args():
         args.embed_dim = 16
         args.num_layers = 2
         args.outdir = '../logs_debug'
+
+    if args.representation == 'point':
+        args.pooling = 'max'
 
     if args.dataset == 'binding_site':
         args.pooling = None
@@ -110,6 +114,19 @@ def load_args():
                 outdir = f'{args.outdir}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}'
             else:
                 outdir = f'{args.pretrained}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}'
+        elif args.representation == 'point':
+            if args.pretrained is None:
+                outdir = args.outdir + '/{}'.format(args.dataset)
+                outdir = outdir + '/{}_{}'.format(args.lr, args.weight_decay)
+                outdir = outdir + '/{}_{}_{}'.format(
+                    args.pooling, args.embed_dim, args.alpha
+                )
+            else:
+                outdir = args.pretrained + '/{}'.format(args.dataset)
+                outdir = outdir + '/{}_{}'.format(args.lr, args.weight_decay)
+                outdir = outdir + '/{}_{}'.format(
+                    args.pooling, args.alpha
+                )
 
         os.makedirs(outdir, exist_ok=True)
         args.outdir = outdir
@@ -154,6 +171,9 @@ class GNNPredictor(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         y_hat, y = self.model.step(batch)
         loss = self.criterion(y_hat, y)
+        if hasattr(self.model, "regularizer_loss"):
+            reg_loss = self.model.regularizer_loss(args.alpha)
+            loss = loss + reg_loss
 
         if 'classification' in self.task.task_type:
             if 'binary' in self.task.task_type:
@@ -324,8 +344,23 @@ def main():
             other_dim = args.other_dim
         )
     elif args.representation == 'point':
-        pass
-
+        from transforms.point import PointTrainingTransform as Transform
+        from models.point import PointNet_pred
+        max_len = np.max(protein_len_list[protein_len_list <= 3000])
+        dset = dset.to_point().torch(transform=Transform(task, y_transform=y_transform, max_len=max_len))
+        if args.dataset == 'ligand_affinity':
+            args.other_dim = dset[0].other_x.shape[-1]
+        net = PointNet_pred(
+            num_class,
+            args.embed_dim,
+            global_pool=args.pooling,
+            out_head=args.out_head,
+            pair_prediction=args.pair_prediction,
+            same_type=args.same_type,
+            other_dim=args.other_dim,
+            aggregation=args.aggregation)
+    else:
+        raise ValueError("Not implemented representation!")
 
 
     train_loader = DataLoader(Subset(dset, np.asarray(task.train_ind)[train_mask]), batch_size=args.batch_size,
@@ -334,8 +369,6 @@ def main():
                               shuffle=False, num_workers=args.num_workers)
     test_loader = DataLoader(Subset(dset, np.asarray(task.test_ind)[test_mask]), batch_size=args.batch_size,
                               shuffle=False, num_workers=args.num_workers)
-
-
 
     if args.pretrained is not None:
         net.from_pretrained(args.pretrained + '/model.pt')
