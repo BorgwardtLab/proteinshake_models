@@ -58,6 +58,8 @@ def load_args():
     parser.add_argument('--pretrained', type=str, default=None, help='pretrained model path')
     parser.add_argument('--aggregation', type=str, default='concat', choices=['dot', 'concat', 'sum'])
     parser.add_argument('--kernel-size', type=int, default=3, help="kernel size")
+    parser.add_argument('--voxelsize', type=int, default=10, help="size of the voxels")
+    parser.add_argument('--gridsize', type=int, default=10, help="size of the voxel grid")
 
     # Optimization hyperparameters
     parser.add_argument('--epochs', type=int, default=100, help='number of epochs')
@@ -104,9 +106,9 @@ def load_args():
                 outdir = outdir + '/{}'.format(args.aggregation)
         elif args.representation == 'voxel':
             if args.pretrained is None:
-                outdir = f'{args.outdir}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}'
+                outdir = f'{args.outdir}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}_{args.voxelsize}_{args.gridsize}'
             else:
-                outdir = f'{args.pretrained}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}'
+                outdir = f'{args.pretrained}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}_{args.voxelsize}_{args.gridsize}'
         os.makedirs(outdir, exist_ok=True)
         args.outdir = outdir
 
@@ -268,7 +270,7 @@ def main():
             kernel_size = args.kernel_size,
             dropout = args.dropout
         )
-        dset = dset.to_voxel(voxelsize=10).torch()
+        dset = dset.to_voxel(gridsize=(args.gridsize, args.gridsize, args.gridsize), voxelsize=args.voxelsize).torch()
 
     train_dset = PPIDataset(dset, task, split='train', filter_mask=None, transform=Transform())
     val_dset = PPIDataset(dset, task, split='val', filter_mask=None, transform=Transform())

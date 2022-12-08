@@ -39,10 +39,14 @@ def load_args():
                         help='random seed')
     parser.add_argument('--dataset', type=str, default='ec',
                         help='which dataset')
-    parser.add_argument('--graph-eps', type=float, default=8.0,
-                        help='constructing eps graphs from distance matrices')
     parser.add_argument('--debug', action='store_true',
                         help='debug mode using escherichia_coli subset')
+
+    # Representation hyperparameters
+    parser.add_argument('--graph-eps', type=float, default=8.0,
+                        help='constructing eps graphs from distance matrices')
+    parser.add_argument('--voxelsize', type=int, default=10, help="size of the voxels")
+    parser.add_argument('--gridsize', type=int, default=10, help="size of the voxel grid")
 
     # Model hyperparameters
     parser.add_argument('--num-layers', type=int, default=5, help="number of layers")
@@ -111,9 +115,9 @@ def load_args():
                 outdir = outdir + '/{}'.format(args.aggregation)
         elif args.representation == 'voxel':
             if args.pretrained is None:
-                outdir = f'{args.outdir}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}'
+                outdir = f'{args.outdir}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}_{args.voxelsize}_{args.gridsize}'
             else:
-                outdir = f'{args.pretrained}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}'
+                outdir = f'{args.pretrained}/{args.dataset}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}_{args.voxelsize}_{args.gridsize}'
         elif args.representation == 'point':
             if args.pretrained is None:
                 outdir = args.outdir + '/{}'.format(args.dataset)
@@ -329,7 +333,7 @@ def main():
         elif args.dataset == 'scop':
             from transforms.voxel import VoxelScopTransform as Transform
             from models.voxel import VoxelNet_Scop as VoxelNet
-        dset = dset.to_voxel(gridsize=(20,20,20), voxelsize=10).torch(
+        dset = dset.to_voxel(gridsize=(args.gridsize, args.gridsize, args.gridsize), voxelsize=args.voxelsize).torch(
             transform=Compose([VoxelRotationAugment(),Transform(task, y_transform=y_transform)])
         )
         if args.dataset == 'ligand_affinity':
