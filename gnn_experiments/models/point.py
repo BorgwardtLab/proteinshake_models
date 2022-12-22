@@ -203,6 +203,9 @@ class PointNet_Pretraining(nn.Module):
         self.base = PointNetBase(embed_dim=embed_dim)
         self.head = nn.Linear(embed_dim, num_class)
 
+    def regularizer_loss(self, alpha=0.0001):
+        return self.base.regularizer_loss(alpha)
+
     def step(self, batch):
         node_true = batch.masked_point_label
         x, labels, mask = batch.coords, batch.labels, batch.mask

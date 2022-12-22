@@ -52,6 +52,7 @@ def load_args():
                         help='masking ratio')
     parser.add_argument('--voxelsize', type=int, default=10, help="size of the voxels")
     parser.add_argument('--gridsize', type=int, default=10, help="size of the voxel grid")
+    parser.add_argument('--alpha', type=float, default=0.0, help="regularization coef for point clouds")
 
     # Optimization hyperparameters
     parser.add_argument('--epochs', type=int, default=100, help='number of epochs')
@@ -84,7 +85,7 @@ def load_args():
         elif args.representation == 'voxel':
             outdir = f'{args.outdir}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}_{args.voxelsize}_{args.gridsize}'
         elif args.representation == 'point':
-            outdir = f'{args.outdir}/{args.lr}_{args.weight_decay}/{args.mask_rate}_{args.embed_dim}'
+            outdir = f'{args.outdir}/{args.lr}_{args.weight_decay}/{args.mask_rate}_{args.embed_dim}_{args.alpha}'
         os.makedirs(outdir, exist_ok=True)
         args.outdir = outdir
 
@@ -105,6 +106,10 @@ class Masking(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         y_hat, y = self.model.step(batch)
         loss = self.criterion(y_hat, y)
+        if hasattr(self.model, "regularizer_loss") and args.alpha > 0:
+            reg_loss = self.model.regularizer_loss(args.alpha)
+            loss = loss + reg_loss
+
         acc = (y_hat.detach().argmax(dim=-1) == y).float().mean().item()
         self.log("train_acc", acc, on_step=False, on_epoch=True, batch_size=1, prog_bar=True)
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1)
