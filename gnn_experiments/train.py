@@ -350,7 +350,7 @@ def main():
     elif args.representation == 'point':
         from transforms.point import PointTrainingTransform as Transform
         from models.point import PointNet_pred
-        max_len = np.max(protein_len_list[protein_len_list <= 3000])
+        max_len = np.max(protein_len_list[protein_len_list <= 1000])
         dset = dset.to_point().torch(transform=Transform(task, y_transform=y_transform, max_len=max_len))
         if args.dataset == 'ligand_affinity':
             args.other_dim = dset[0].other_x.shape[-1]

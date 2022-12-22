@@ -196,25 +196,35 @@ class PointNet_pred(nn.Module):
         self.encoder.load_state_dict(torch.load(model_path)['state_dict'])
         print(f"Model loaded from {model_path}")
 
-class PointNet_Pretraining(nn.Module):
 
-    def __init__(self):
+class PointNet_Pretraining(nn.Module):
+    def __init__(self, embed_dim=64, num_class=NUM_PROTEINS):
         super().__init__()
-        self.base = PointNetBase()
-        self.head = nn.Sequential(
-            nn.Conv1d(in_channels=d3*2, out_channels=20, kernel_size=1, stride=1, padding='same'),
-            nn.Sigmoid()
+        self.base = PointNetBase(embed_dim=embed_dim)
+        self.head = nn.Linear(embed_dim, num_class)
+
+    def step(self, batch):
+        node_true = batch.masked_point_label
+        x, labels, mask = batch.coords, batch.labels, batch.mask
+        node_repr = self.base(x, labels)
+        node_pred = self.head(node_repr[batch.masked_point_indices])
+        return node_pred, node_true
+
+    def save(self, path, args):
+        torch.save(
+            {'args': args, 'state_dict': self.base.state_dict(), 'head_state_dict': self.head.state_dict()},
+            path
         )
 
-    def forward(self, batch):
-        coords, labels, masked, mask = batch
-        coords = coords.permute(0,2,1)
-        masked = masked.permute(0,2,1)
-        x, matrix3x3, matrix64x64 = self.base(coords.cuda(), masked.cuda())
-        g = nn.MaxPool1d(x.size(-1))(x)
-        g = nn.Flatten(1)(g)
-        x = torch.cat([x,g.unsqueeze(-1).repeat(1,1,x.shape[-1])], dim=1)
-        return self.head(x).permute(0,2,1)
+    # def forward(self, batch):
+    #     coords, labels, masked, mask = batch
+    #     coords = coords.permute(0,2,1)
+    #     masked = masked.permute(0,2,1)
+    #     x, matrix3x3, matrix64x64 = self.base(coords.cuda(), masked.cuda())
+    #     g = nn.MaxPool1d(x.size(-1))(x)
+    #     g = nn.Flatten(1)(g)
+    #     x = torch.cat([x,g.unsqueeze(-1).repeat(1,1,x.shape[-1])], dim=1)
+    #     return self.head(x).permute(0,2,1)
 
 
 # class PointNet_EnzymeClass(nn.Module):

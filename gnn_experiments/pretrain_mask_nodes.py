@@ -73,6 +73,7 @@ def load_args():
         args.epochs = 10
         args.embed_dim = 16
         args.num_layers = 2
+        args.num_workers = 1
         args.outdir = '../logs_debug'
 
     args.save_logs = False
@@ -82,6 +83,8 @@ def load_args():
             outdir = f'{args.outdir}/{args.lr}_{args.weight_decay}/{args.mask_rate}_{args.gnn_type}_{args.num_layers}_{args.embed_dim}_{args.dropout}_{args.use_edge_attr}_{args.pe}'
         elif args.representation == 'voxel':
             outdir = f'{args.outdir}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}_{args.voxelsize}_{args.gridsize}'
+        elif args.representation == 'point':
+            outdir = f'{args.outdir}/{args.lr}_{args.weight_decay}/{args.mask_rate}_{args.embed_dim}'
         os.makedirs(outdir, exist_ok=True)
         args.outdir = outdir
 
@@ -154,7 +157,17 @@ def main():
             dropout = args.dropout
         )
     elif args.representation == 'point':
-        pass
+        from transforms.point import PointPretrainingTransform, PointMasking
+        dset = dset.to_point().torch(
+            transform=Compose([
+                PointPretrainingTransform(max_len=1000),
+                PointMasking(mask_rate=args.mask_rate)
+            ])
+        )
+        from models.point import PointNet_Pretraining
+        net = PointNet_Pretraining(
+            args.embed_dim
+        )
 
     data_loader = DataLoader(dset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
     model = Masking(net, args)
