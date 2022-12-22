@@ -11,8 +11,11 @@ class VoxelRotationAugment():
         return data, protein_dict
 
 class VoxelMaskingTransform():
+    def __init__(self, mask_ratio=0.15):
+        self.mask_ratio = mask_ratio
 
-    def __call__(self, args, mask_ratio=0.15):
+    def __call__(self, args):
+        mask_ratio = self.mask_ratio
         data, protein_dict = args
         nonzero = ~((data == 0).all(-1))
         volume = nonzero.sum()

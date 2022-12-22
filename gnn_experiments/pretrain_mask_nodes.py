@@ -83,7 +83,7 @@ def load_args():
         if args.representation == 'graph':
             outdir = f'{args.outdir}/{args.lr}_{args.weight_decay}/{args.mask_rate}_{args.gnn_type}_{args.num_layers}_{args.embed_dim}_{args.dropout}_{args.use_edge_attr}_{args.pe}'
         elif args.representation == 'voxel':
-            outdir = f'{args.outdir}/{args.lr}_{args.weight_decay}/{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}_{args.voxelsize}_{args.gridsize}'
+            outdir = f'{args.outdir}/{args.lr}_{args.weight_decay}/{args.mask_rate}_{args.kernel_size}_{args.num_layers}_{args.embed_dim}_{args.dropout}_{args.voxelsize}_{args.gridsize}'
         elif args.representation == 'point':
             outdir = f'{args.outdir}/{args.lr}_{args.weight_decay}/{args.mask_rate}_{args.embed_dim}_{args.alpha}'
         os.makedirs(outdir, exist_ok=True)
@@ -151,7 +151,7 @@ def main():
     elif args.representation == 'voxel':
         from transforms.voxel import VoxelMaskingTransform
         dset = dset.to_voxel(gridsize=(args.gridsize, args.gridsize, args.gridsize), voxelsize=args.voxelsize).torch(
-            transform=Compose([VoxelMaskingTransform()])
+            transform=Compose([VoxelMaskingTransform(args.mask_rate)])
         )
         from models.voxel import VoxelNet_Pretraining
         net = VoxelNet_Pretraining(
