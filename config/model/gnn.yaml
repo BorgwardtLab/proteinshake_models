@@ -1,0 +1,11 @@
+name: gnn
+num_layers: 5
+embed_dim: 256
+gnn_type: gin
+dropout: 0.0
+pooling: mean
+pe: sine
+out_head: linear
+aggregation: dot
+use_edge_attr: false
+pretrained: null

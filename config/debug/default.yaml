@@ -1,0 +1,14 @@
+# @package _global_
+
+model:
+  num_layers: 2
+  embed_dim: 16
+
+training:
+  debug: true
+  epochs: 10
+  lr: 0.001
+  weight_decay: 0.0
+  batch_size: 16
+  warmup: 10
+  num_workers: 0

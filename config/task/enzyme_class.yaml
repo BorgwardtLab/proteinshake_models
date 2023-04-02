@@ -1,0 +1,4 @@
+name: enzyme_class
+path: ${paths.data_dir}/enzyme_class
+class_name: EnzymeClassTask
+split: random

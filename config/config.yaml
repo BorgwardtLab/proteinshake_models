@@ -1,0 +1,11 @@
+defaults:
+  - _self_
+  - task: enzyme_class
+  - representation: graph
+  - model: gnn
+  - training: default
+  - paths: default
+  - debug: null
+
+general:
+  seed: 0
