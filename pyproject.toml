@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ProteinShake_eval"
+authors = [
+    {name = "Dexiong Chen", email = "dchen@ethz.ch"},
+]
+description = "ProteinShake Evaluation"
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["ProteinShake", "protein", "graph", "point cloud", "voxel", "evaluation"]
+license = {text = "BSD-3-Clause"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+dynamic = ["version"]
+
+[tool.setuptools]
+packages = ["proteinshake_eval"]
