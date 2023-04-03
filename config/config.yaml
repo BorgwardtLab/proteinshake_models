@@ -8,5 +8,4 @@ defaults:
   - optional best_model: ${task}_${representation}
   - debug: null
 
-general:
-  seed: 0
+seed: 0

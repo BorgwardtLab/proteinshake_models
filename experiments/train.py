@@ -143,7 +143,7 @@ class ProteinTaskTrainer(pl.LightningModule):
 @hydra.main(version_base="1.3", config_path="../config", config_name="config")
 def main(cfg: DictConfig) -> None:
     print(OmegaConf.to_yaml(cfg))
-    pl.seed_everything(cfg.general.seed, workers=True)
+    pl.seed_everything(cfg.seed, workers=True)
 
     task = get_task(cfg.task.class_name)(
         root=cfg.task.path, split=cfg.task.split, verbosity=1)
