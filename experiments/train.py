@@ -189,7 +189,7 @@ class ProteinTaskTrainer(pl.LightningModule):
         y_hat, y = self.model.step(batch)
         loss = self.criterion(y_hat, y)
         if hasattr(self.model, "regularizer_loss"):
-            reg_loss = self.model.regularizer_loss(self.cfg.alpha)
+            reg_loss = self.model.regularizer_loss()
             loss = loss + reg_loss
 
         if 'classification' in self.task.task_type:
@@ -337,7 +337,11 @@ def main(cfg: DictConfig) -> None:
 
     # data_transform = get_train_transform(args, task, y_transform)
     # dset = dset.to
-    dset = get_transformed_dataset(cfg.representation, dset, task, y_transform)
+    dset = get_transformed_dataset(cfg.representation, dset, task, y_transform, max_len=3000)
+    if "pair" in task.task_type[0] or cfg.task.name == 'ligand_affinity':
+        task.pair_data = True
+    else:
+        task.pair_data = False
     task.other_dim = dset[0].other_x.shape[-1] if cfg.task.name == 'ligand_affinity' else None 
     net = ProteinStructureNet(cfg.model, task)
 

@@ -1,0 +1,4 @@
+name: pfam
+path: ${paths.data_dir}/pfam
+class_name: ProteinFamilyTask
+split: random

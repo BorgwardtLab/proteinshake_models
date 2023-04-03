@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
-from proteinshake import tasks as ps_tasks
 from torch_geometric.data import Data
+from .utils import reshape_data, add_other_data
 
 
 # class PointMaskingTransform():
@@ -23,6 +23,7 @@ from torch_geometric.data import Data
 class PointTrainTransform(object):
     def __init__(self, task, y_transform=None, max_len=1000):
         self.task = task
+        _,self.task_type = task.task_type
         self.y_transform = y_transform
         self.max_len = max_len
 
@@ -41,19 +42,8 @@ class PointTrainTransform(object):
         data.labels = labels.unsqueeze(0)
         data.mask = mask.unsqueeze(0)
         data.y = target
-        if 'binary' in self.task.task_type:
-            data.y = torch.tensor(data.y).view(-1, 1).float()
-        if self.task.task_type == 'regression':
-            data.y = torch.tensor(data.y).view(-1, 1).float()
-            if self.y_transform is not None:
-                data.y = torch.from_numpy(self.y_transform.transform(
-                    data.y).astype('float32'))
-        if isinstance(self.task, ps_tasks.LigandAffinityTask):
-            fp_maccs = torch.tensor(protein_dict['protein']['fp_maccs'])
-            fp_morgan_r2 = torch.tensor(protein_dict['protein']['fp_morgan_r2'])
-            other_x = torch.cat((fp_maccs, fp_morgan_r2), dim=-1).float()
-            # return (coords.T, labels, mask), other_x, target
-            data.other_x = other_x.view(1, -1)
+        data = reshape_data(data, self.task_type)
+        data = add_other_data(data, self.task, protein_dict)
         return data
 
 

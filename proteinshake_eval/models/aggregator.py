@@ -36,35 +36,50 @@ class Aggregator(nn.Module):
 
 
 class GlobalAvg1D(nn.Module):
-    def __init__(self):
+    def __init__(self, dim=1):
         super(GlobalAvg1D, self).__init__()
+        self.dim = dim
 
     def forward(self, x, mask=None):
         if mask is None:
-            return x.mean(dim=1)
+            return x.mean(dim=self.dim)
         mask = mask.float().unsqueeze(-1)
         x = x * mask
-        return x.sum(dim=1)/mask.sum(dim=1)
+        return x.sum(dim=self.dim)/mask.sum(dim=self.dim)
 
 
 class GlobalSum1D(nn.Module):
-    def __init__(self):
+    def __init__(self, dim=1):
         super(GlobalAvg1D, self).__init__()
+        self.dim = dim
 
     def forward(self, x, mask=None):
         if mask is None:
-            return x.mean(dim=1)
+            return x.mean(dim=self.dim)
         mask = mask.float().unsqueeze(-1)
         x = x * mask
-        return x.sum(dim=1)
+        return x.sum(dim=self.dim)
 
 
 class GlobalMax1D(nn.Module):
-    def __init__(self):
+    def __init__(self, dim=1):
         super(GlobalMax1D, self).__init__()
+        self.dim = dim
 
     def forward(self, x, mask=None):
         if mask is not None:
             # mask = mask.unsqueeze(-1).expand_as(x)
             x[~mask] = -float("inf")
-        return x.max(dim=1)[0]
+        # return x.max(dim=self.dim)[0]
+        return torch.amax(x, dim=self.dim)
+
+
+def build_pooling(global_pool='mean', dim=1):
+    pooling = None
+    if global_pool == 'max':
+        pooling = GlobalMax1D(dim)
+    elif global_pool == 'mean':
+        pooling = GlobalAvg1D(dim)
+    elif global_pool == 'sum':
+        pooling = GlobalSum1D(dim)
+    return pooling

@@ -1,0 +1,4 @@
+name: binding_site_detection
+path: ${paths.data_dir}/binding_site_detection
+class_name: BindingSiteDetectionTask
+split: random

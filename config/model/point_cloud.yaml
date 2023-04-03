@@ -1,0 +1,7 @@
+name: point_net
+embed_dim: 192
+pooling: max
+out_head: linear
+aggregation: dot
+pretrained: null
+alpha: 0.001

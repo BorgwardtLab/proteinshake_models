@@ -1,7 +1,7 @@
 import math
 import torch
 from torch_geometric.data import Data
-from proteinshake import tasks as ps_tasks
+from .utils import reshape_data, add_other_data
 
 
 class GraphPretrainTransform(object):
@@ -44,17 +44,8 @@ class GraphTrainTransform(object):
         new_data.edge_index = data.edge_index
         new_data.edge_attr = data.edge_attr
         new_data.y = self.task.target(protein_dict)
-        if 'binary' in self.task_type:
-            new_data.y = torch.tensor(new_data.y).view(-1, 1).float()
-        if self.task_type == 'regression':
-            new_data.y = torch.tensor(new_data.y).view(-1, 1)
-            if self.y_transform is not None:
-                new_data.y = torch.from_numpy(self.y_transform.transform(
-                    new_data.y).astype('float32'))
-        if isinstance(self.task, ps_tasks.LigandAffinityTask):
-            fp_maccs = torch.tensor(protein_dict['protein']['fp_maccs']).view(1, -1)
-            fp_morgan_r2 = torch.tensor(protein_dict['protein']['fp_morgan_r2']).view(1, -1)
-            new_data.other_x = torch.cat((fp_maccs, fp_morgan_r2), dim=-1).float()
+        new_data = reshape_data(new_data, self.task_type)
+        new_data = add_other_data(new_data, self.task, protein_dict)
         return new_data
 
 

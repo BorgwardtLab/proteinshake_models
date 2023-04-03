@@ -2,19 +2,22 @@ import torch
 from torch import nn
 from .aggregator import Aggregator
 from .graph import GNN_encoder
+from .point import PointNet_encoder
+from .voxel import VoxelNet_encoder
 
 
 class TaskHead(nn.Module):
     def __init__(self, task, embed_dim=256, out_head='linear',
-                 aggregation='dot', other_dim=1024):
+                 aggregation='dot'):
         super().__init__()
 
         _, task_type = task.task_type
 
-        self.pair_prediction = 'pair' in task_type
+        self.pair_prediction = task.pair_data
 
         if self.pair_prediction:
             if task_type != 'protein_pair':
+                other_dim = task.other_dim
                 self.other_encoder = nn.Sequential(
                     nn.Linear(other_dim, embed_dim),
                     nn.BatchNorm1d(embed_dim),
@@ -57,7 +60,8 @@ class ProteinStructureNet(nn.Module):
         # Build task head
         self.task_head = self.build_task_head(cfg, task)
 
-        self.encode_other = task.task_type[0] == 'protein_pair'
+        self.encode_other = task.pair_data
+        self.encode_other_protein = task.task_type[0] == 'protein_pair'
 
     def build_encoder(self, cfg):
         if cfg.name == 'gnn':
@@ -70,6 +74,20 @@ class ProteinStructureNet(nn.Module):
                 cfg.pe,
                 cfg.pooling,
             )
+        elif cfg.name == 'point_net':
+            return PointNet_encoder(
+                cfg.embed_dim,
+                cfg.pooling,
+                cfg.alpha
+            )
+        elif cfg.name == 'voxel_net':
+            return VoxelNet_encoder(
+                cfg.embed_dim,
+                cfg.num_layers,
+                cfg.kernel_size,
+                cfg.dropout,
+                cfg.pooling,
+            )
         else:
             raise ValueError("Not implemented!")
 
@@ -79,13 +97,12 @@ class ProteinStructureNet(nn.Module):
             cfg.embed_dim,
             cfg.out_head,
             cfg.aggregation,
-            task.other_dim
         )
 
     def forward(self, data, other_data=None):
         x = self.encoder(data)
         other_x = other_data
-        if self.encode_other:
+        if self.encode_other_protein:
             assert other_data is not None, "other data should be provided"
             other_x = self.encoder(other_data)
 
@@ -101,7 +118,10 @@ class ProteinStructureNet(nn.Module):
         # else:
         #     data, other_x, y = batch, None, batch.y
         if self.encode_other:
-            data, other_x, y = batch, batch.other_x, batch.y
+            if self.encode_other_protein:
+                data, other_x, y = batch
+            else:
+                data, other_x, y = batch, batch.other_x, batch.y
         else:
             data, other_x, y = batch, None, batch.y
         y_hat = self.forward(data, other_x)

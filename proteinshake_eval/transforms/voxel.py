@@ -1,4 +1,7 @@
 import torch
+from torch_geometric.data import Data
+from .utils import reshape_data, add_other_data
+
 
 class VoxelRotationAugment():
 
@@ -27,36 +30,56 @@ class VoxelMaskingTransform():
         masked[mask] = 1
         return data, masked, mask
 
-class VoxelLigandAffinityTransform():
 
-    def __init__(self, task, y_transform=None):
+class VoxelTrainTransform(object):
+    def __init__(self, task, y_transform=None, use_totation_aug=True):
         self.task = task
+        _,self.task_type = task.task_type
         self.y_transform = y_transform
+        self.augment = VoxelRotationAugment() if use_totation_aug else None
 
-    def __call__(self, args):
-        data, protein_dict = args
-        target = torch.tensor(self.task.target(protein_dict)).float()
-        if self.y_transform is not None:
-            target = torch.from_numpy(self.y_transform.transform(target).astype('float32'))
-        fp_maccs = torch.tensor(protein_dict['protein']['fp_maccs'])
-        fp_morgan_r2 = torch.tensor(protein_dict['protein']['fp_morgan_r2'])
-        fingerprint = torch.cat((fp_maccs, fp_morgan_r2), dim=-1).float()
-        return data, target, fingerprint
+    def __call__(self, data):
+        data, protein_dict = self.augment(data)
+        batch_data = Data()
+        batch_data.x = data.unsqueeze(0)
+        batch_data.mask = ((data == 0).all(-1)).unsqueeze(0)
+        batch_data.y = self.task.target(protein_dict)
+        # reshape y
+        batch_data = reshape_data(batch_data, self.task_type)
+        # add other data if self.task is in [LigandAffinityTask, ]
+        batch_data = add_other_data(batch_data, self.task, protein_dict)
+        return batch_data
 
-class VoxelEnzymeClassTransform():
+# class VoxelLigandAffinityTransform():
 
-    def __init__(self, task, y_transform=None):
-        self.task = task
+#     def __init__(self, task, y_transform=None):
+#         self.task = task
+#         self.y_transform = y_transform
 
-    def __call__(self, args):
-        data, protein_dict = args
-        return data, torch.eye(self.task.num_classes)[self.task.target(protein_dict)].float()
+#     def __call__(self, args):
+#         data, protein_dict = args
+#         target = torch.tensor(self.task.target(protein_dict)).float()
+#         if self.y_transform is not None:
+#             target = torch.from_numpy(self.y_transform.transform(target).astype('float32'))
+#         fp_maccs = torch.tensor(protein_dict['protein']['fp_maccs'])
+#         fp_morgan_r2 = torch.tensor(protein_dict['protein']['fp_morgan_r2'])
+#         fingerprint = torch.cat((fp_maccs, fp_morgan_r2), dim=-1).float()
+#         return data, target, fingerprint
 
-class VoxelScopTransform():
+# class VoxelEnzymeClassTransform():
 
-    def __init__(self, task, y_transform=None):
-        self.task = task
+#     def __init__(self, task, y_transform=None):
+#         self.task = task
 
-    def __call__(self, args):
-        data, protein_dict = args
-        return data, torch.eye(self.task.num_classes)[self.task.target(protein_dict)].float()
+#     def __call__(self, args):
+#         data, protein_dict = args
+#         return data, torch.eye(self.task.num_classes)[self.task.target(protein_dict)].float()
+
+# class VoxelScopTransform():
+
+#     def __init__(self, task, y_transform=None):
+#         self.task = task
+
+#     def __call__(self, args):
+#         data, protein_dict = args
+#         return data, torch.eye(self.task.num_classes)[self.task.target(protein_dict)].float()

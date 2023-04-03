@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .aggregator import Aggregator, GlobalAvg1D, GlobalSum1D, GlobalMax1D
+from .aggregator import Aggregator, build_pooling
 
 # modified from: https://www.kaggle.com/code/balraj98/pointnet-for-3d-object-classification-pytorch/notebook
 
@@ -106,6 +106,27 @@ class PointNetBase(nn.Module):
     def regularizer_loss(self, alpha=0.001):
         return alpha * self.regularizer_loss_
 
+
+class PointNet_encoder(nn.Module):
+    def __init__(self, embed_dim=64, global_pool='max', alpha=0.0001):
+        super().__init__()
+        self.encoder = PointNetBase(embed_dim=embed_dim)
+        self.alpha = alpha
+
+        self.pooling = build_pooling(global_pool, dim=1)
+
+    def forward(self, data, other_data=None):
+        x, labels, mask = data.coords, data.labels, data.mask
+        output = self.encoder(x, labels)
+        if self.pooling is not None:
+            output = self.pooling(output, mask)
+        else:
+            output = output[mask]
+
+        return output
+
+    def regularizer_loss(self):
+        return self.encoder.regularizer_loss(self.alpha)
 
 class PointNet_pred(nn.Module):
     def __init__(self, num_class, embed_dim=64, global_pool='max', out_head='linear',
