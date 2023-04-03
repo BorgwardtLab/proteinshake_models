@@ -50,10 +50,6 @@ class GraphTrainTransform(object):
 
 
 class GraphPairTrainTransform(object):
-    def __init__(self, task, y_transform=None):
-        self.task = task
-        self.y_transform = y_transform
-
     def __call__(self, data):
         data, protein_dict = data
         new_data = Data()

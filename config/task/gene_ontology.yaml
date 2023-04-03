@@ -1,0 +1,4 @@
+name: gene_ontology
+path: ${paths.data_dir}/gene_ontology
+class_name: GeneOntologyTask
+split: random

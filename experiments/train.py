@@ -33,6 +33,9 @@ from proteinshake_eval.transforms import get_transformed_dataset
 from proteinshake_eval.models.protein_model import ProteinStructureNet
 
 import pytorch_lightning as pl
+import logging
+
+log = logging.getLogger(__name__)
 
 
 ALLTASKS = ALLTASKS[1:]
@@ -58,8 +61,8 @@ class ProteinTaskTrainer(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         y_hat, y = self.model.step(batch)
         loss = self.criterion(y_hat, y)
-        if hasattr(self.model, "regularizer_loss"):
-            reg_loss = self.model.regularizer_loss()
+        if hasattr(self.model.encoder, "regularizer_loss"):
+            reg_loss = self.model.encoder.regularizer_loss()
             loss = loss + reg_loss
 
         if 'classification' in self.task.task_type:
@@ -110,6 +113,7 @@ class ProteinTaskTrainer(pl.LightningModule):
         df = pd.DataFrame.from_dict(scores, orient='index')
         df.to_csv(f"{self.logger.log_dir}/results.csv",
                   header=['value'], index_label='name')
+        log.info(f"Test scores:\n{df}")
         return scores
 
     def configure_optimizers(self):
@@ -142,7 +146,7 @@ class ProteinTaskTrainer(pl.LightningModule):
 
 @hydra.main(version_base="1.3", config_path="../config", config_name="config")
 def main(cfg: DictConfig) -> None:
-    print(OmegaConf.to_yaml(cfg))
+    log.info(f"Configs:\n{OmegaConf.to_yaml(cfg)}")
     pl.seed_everything(cfg.seed, workers=True)
 
     task = get_task(cfg.task.class_name)(
@@ -155,8 +159,8 @@ def main(cfg: DictConfig) -> None:
     y_transform = None
     if task.task_type[1] == 'regression':
         from sklearn.preprocessing import StandardScaler
-        all_y = np.asarray([
-            task.target(protein_dict) for protein_dict in dset.proteins()])[task.train_index]
+        task.compute_targets()
+        all_y = task.train_targets
         y_transform = StandardScaler().fit(all_y.reshape(-1, 1))
 
     dset = get_transformed_dataset(cfg.representation, dset, task, y_transform, max_len=3000)
@@ -173,7 +177,7 @@ def main(cfg: DictConfig) -> None:
     )
 
     if cfg.model.pretrained is not None:
-        print("Loading pretrained model...")
+        log.info("Loading pretrained model...")
         net.from_pretrained(cfg.model.pretrained + '/model.pt')
 
     model = ProteinTaskTrainer(net, cfg, task, y_transform)

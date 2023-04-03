@@ -37,6 +37,15 @@ def get_filter_mask(dataset, task, n=3000):
     return train_mask, val_mask, test_mask
 
 def get_data_loaders(dataset, task, masks, batch_size, num_workers):
+    if task.task_type[0] == "protein_pair":
+        train_dset, val_dset, test_dset = dataset
+        train_loader = DataLoader(train_dset, batch_size=batch_size,
+            shuffle=True, num_workers=num_workers)
+        val_loader = DataLoader(val_dset, batch_size=batch_size,
+            shuffle=False, num_workers=num_workers)
+        test_loader = DataLoader(test_dset, batch_size=batch_size,
+            shuffle=False, num_workers=num_workers)
+        return train_loader, val_loader, test_loader
     train_mask, val_mask, test_mask = masks
     train_loader = DataLoader(
         Subset(dataset, np.asarray(task.train_index)[train_mask]),
@@ -62,6 +71,8 @@ def get_cosine_schedule_with_warmup(optimizer, warmup_epochs, max_epochs):
 def get_loss(task_type):
     if task_type == "multi_class":
         return nn.CrossEntropyLoss(), 'accuracy'
+    elif task_type == "multi_label":
+        return nn.BCEWithLogitsLoss(), 'Fmax'
     elif task_type == "binary":
         return nn.BCEWithLogitsLoss(), 'accuracy'
     elif task_type == "regression":

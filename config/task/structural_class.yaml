@@ -1,0 +1,4 @@
+name: structural_class
+path: ${paths.data_dir}/structural_class
+class_name: StructuralClassTask
+split: random

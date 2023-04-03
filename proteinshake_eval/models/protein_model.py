@@ -11,12 +11,12 @@ class TaskHead(nn.Module):
                  aggregation='dot'):
         super().__init__()
 
-        _, task_type = task.task_type
+        task_level, task_type = task.task_type
 
         self.pair_prediction = task.pair_data
 
         if self.pair_prediction:
-            if task_type != 'protein_pair':
+            if task_level != 'protein_pair':
                 other_dim = task.other_dim
                 self.other_encoder = nn.Sequential(
                     nn.Linear(other_dim, embed_dim),

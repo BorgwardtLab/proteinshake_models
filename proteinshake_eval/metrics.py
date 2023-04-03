@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn import metrics
+from scipy.stats import spearmanr
 
 
 def compute_metrics(y_true, y_score, task_type='classification, multi-class'):
@@ -38,6 +39,9 @@ def compute_metrics(y_true, y_score, task):
     if task_type == "multi_class":
         y_pred = y_score.argmax(-1)
         scores = task.evaluate(y_true, y_pred)
+    elif task_type == "multi_label":
+        y_pred = (y_score > 0).astype('float32')
+        scores = task.evaluate(y_true, y_pred)
     elif task_type == "binary":
         y_pred = (y_score > 0).astype('float32')
         scores = task.evaluate(y_true, y_pred)
@@ -45,6 +49,8 @@ def compute_metrics(y_true, y_score, task):
     elif task_type == 'regression':
         scores = task.evaluate(y_true, y_pred)
         scores['neg_mse'] = -scores['mse']
+        scores['spearmanr'] = spearmanr(y_true, y_pred).correlation
+        scores['r2'] = metrics.r2_score(y_true, y_score)
     else:
         scores = task.evaluate(y_true, y_pred)
     return scores

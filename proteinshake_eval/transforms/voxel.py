@@ -50,6 +50,18 @@ class VoxelTrainTransform(object):
         batch_data = add_other_data(batch_data, self.task, protein_dict)
         return batch_data
 
+
+class VoxelPairTrainTransform(object):
+    def __init__(self, use_totation_aug=True):
+        self.augment = VoxelRotationAugment() if use_totation_aug else None
+
+    def __call__(self, data):
+        data, protein_dict = self.augment(data)
+        batch_data = Data()
+        batch_data.x = data.unsqueeze(0)
+        batch_data.mask = ((data == 0).all(-1)).unsqueeze(0)
+        return batch_data
+
 # class VoxelLigandAffinityTransform():
 
 #     def __init__(self, task, y_transform=None):

@@ -47,6 +47,24 @@ class PointTrainTransform(object):
         return data
 
 
+class PointPairTrainTransform(object):
+    def __init__(self, max_len=1000):
+        self.max_len = max_len
+
+    def __call__(self, data):
+        data, protein_dict = data
+        coords, labels = data[:,:3], data[:,3]
+        data = Data()
+        mask = torch.zeros((self.max_len,), dtype=torch.bool)
+        mask[:min(coords.shape[0], self.max_len)] = True
+        coords = F.pad(coords[:self.max_len], (0,0,0,max(0, self.max_len - coords.shape[0])))
+        labels = F.pad(labels[:self.max_len].long(), (0, max(0, self.max_len - labels.shape[0])), value=21)
+        data.coords = coords.T.unsqueeze(0)
+        data.labels = labels.unsqueeze(0)
+        data.mask = mask.unsqueeze(0)
+        return data
+
+
 class PointPretrainTransform(object):
     def __init__(self, max_len=1000):
         self.max_len = max_len
