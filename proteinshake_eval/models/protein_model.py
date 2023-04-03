@@ -110,13 +110,6 @@ class ProteinStructureNet(nn.Module):
         return output
 
     def step(self, batch):
-        # if self.pair_prediction:
-        #     if self.same_type:
-        #         data, other_x, y = batch
-        #     else:
-        #         data, other_x, y = batch, batch.other_x, batch.y
-        # else:
-        #     data, other_x, y = batch, None, batch.y
         if self.encode_other:
             if self.encode_other_protein:
                 data, other_x, y = batch
@@ -133,6 +126,6 @@ class ProteinStructureNet(nn.Module):
 
     def save(self, save_path):
         torch.save(
-            {'cfg': cfg, 'state_dict': self.state_dict()},
+            {'cfg': self.cfg, 'state_dict': self.state_dict()},
             save_path
         )
