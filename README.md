@@ -2,6 +2,18 @@
 
 We build GNN, PointNet, and VoxelNet as baseline methods and perform evaluation on the proteinshake tasks.
 
+## TODO
+
+#### Tasks
+
+- [x] EnzymeClass
+- [x] LigandAffinity
+- [x] BindingSiteDetection
+- [x] ProteinFamily
+- [ ] StructureSimilarity
+- [ ] StructuralClass
+- [ ] GeneOntology
+
 ## Installation
 
 ```bash
