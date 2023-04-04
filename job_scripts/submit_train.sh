@@ -17,6 +17,6 @@ mamba activate shakesat
 
 cd ..
 
-python experiments/train.py -m task=enzyme_class representation=graph seed=${SLURM_ARRAY_TASK_ID}
+python experiments/train.py task=enzyme_class representation=graph task.split=random seed=${SLURM_ARRAY_TASK_ID}
 
 exit 0
