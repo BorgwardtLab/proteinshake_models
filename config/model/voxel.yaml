@@ -6,4 +6,3 @@ dropout: 0.0
 pooling: max
 out_head: linear
 aggregation: dot
-pretrained: null

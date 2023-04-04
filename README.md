@@ -18,5 +18,5 @@ pip install -e .
 ## Training
 
 ```bash
-python experiments/train.py
+python experiments/train.py task=enzyme_class
 ```

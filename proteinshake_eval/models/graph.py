@@ -255,6 +255,9 @@ class GNN_encoder(nn.Module):
             output = self.pooling(output, data.batch)
         return output
 
+    def from_pretrained(self, model_path):
+        self.encoder.load_state_dict(torch.load(model_path)['state_dict'])
+
 
 class GNN_graphpred(nn.Module):
     def __init__(self, num_class, embed_dim=256, num_layers=3, dropout=0.0, gnn_type='gin',

@@ -50,6 +50,9 @@ class VoxelNet_encoder(nn.Module):
             output = self.pooling(output, mask)
         return output
 
+    def from_pretrained(self, model_path):
+        self.encoder.load_state_dict(torch.load(model_path)['state_dict'])
+
 # class VoxelNet_Pretraining(Template):
 
 #     def __init__(self, input_dim, hidden_dim, num_layers, kernel_size, dropout):

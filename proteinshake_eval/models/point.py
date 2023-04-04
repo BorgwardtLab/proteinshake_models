@@ -128,6 +128,9 @@ class PointNet_encoder(nn.Module):
     def regularizer_loss(self):
         return self.encoder.regularizer_loss(self.alpha)
 
+    def from_pretrained(self, model_path):
+        self.encoder.load_state_dict(torch.load(model_path)['state_dict'])
+
 class PointNet_pred(nn.Module):
     def __init__(self, num_class, embed_dim=64, global_pool='max', out_head='linear',
                  pair_prediction=False, same_type=False, other_dim=1024,

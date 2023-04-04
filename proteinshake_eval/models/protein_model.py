@@ -121,8 +121,7 @@ class ProteinStructureNet(nn.Module):
         return y_hat, y
 
     def from_pretrained(self, model_path):
-        self.encoder.load_state_dict(torch.load(model_path)['state_dict'])
-        print(f"Model loaded from {model_path}")
+        self.encoder.from_pretrained(model_path)
 
     def save(self, save_path):
         torch.save(

@@ -5,6 +5,7 @@ import copy
 import numpy as np
 import itertools
 import pandas as pd
+from pathlib import Path
 
 import hydra
 from omegaconf import DictConfig, OmegaConf
@@ -52,6 +53,8 @@ class ProteinTaskTrainer(pl.LightningModule):
         self.main_val_metric = 'val_' + self.main_metric
         self.best_weights = None
         self.y_transform = y_transform
+        self.output_dir = Path(cfg.paths.log_dir)
+        self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def inverse_transform(self, y_true, y_pred):
         if self.y_transform is None:
@@ -111,7 +114,9 @@ class ProteinTaskTrainer(pl.LightningModule):
         scores = self.evaluate_epoch_end(outputs, 'test')
         scores['best_val_score'] = self.best_val_score
         df = pd.DataFrame.from_dict(scores, orient='index')
-        df.to_csv(f"{self.logger.log_dir}/results.csv",
+        df.to_csv(Path(self.logger.log_dir) / "results.csv",
+                  header=['value'], index_label='name')
+        df.to_csv(self.output_dir / "results.csv",
                   header=['value'], index_label='name')
         log.info(f"Test scores:\n{df}")
         return scores
@@ -176,9 +181,10 @@ def main(cfg: DictConfig) -> None:
         cfg.training.batch_size, cfg.training.num_workers
     )
 
-    if cfg.model.pretrained is not None:
+    if cfg.pretrained:
         log.info("Loading pretrained model...")
-        net.from_pretrained(cfg.model.pretrained + '/model.pt')
+        net.from_pretrained(cfg.pretrained_path)
+        log.info(f"Model loaded from {cfg.pretrained_path}")
 
     model = ProteinTaskTrainer(net, cfg, task, y_transform)
 
@@ -207,7 +213,7 @@ def main(cfg: DictConfig) -> None:
     model.model.load_state_dict(model.best_weights)
     model.best_weights = None
     trainer.test(model, test_loader)
-    net.save(f"{cfg.paths.output_dir}/model.pt")
+    net.save(Path(cfg.paths.output_dir) / "model.pt")
     # model.plot()
 
 

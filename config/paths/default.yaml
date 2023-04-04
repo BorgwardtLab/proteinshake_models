@@ -1,3 +1,4 @@
 # path to data directory
 data_dir: data
 output_dir: ${hydra:runtime.output_dir}
+log_dir: logs/${task.name}/${representation.name}

@@ -2,8 +2,8 @@
 
 model:
   pooling: mean
-  gnn_type: gcn
+  gnn_type: gin
   aggregation: concat
 
 training:
-  lr: 0.0005
+  lr: 0.001

@@ -9,6 +9,8 @@ defaults:
   - debug: null
 
 seed: 0
+pretrained: false
+pretrained_path: pretrained/${representation.name}/model.pt
 
 # output directory, generated dynamically on each run
 hydra:

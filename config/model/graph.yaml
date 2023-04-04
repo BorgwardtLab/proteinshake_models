@@ -8,4 +8,3 @@ pe: sine
 out_head: linear
 aggregation: dot
 use_edge_attr: false
-pretrained: null

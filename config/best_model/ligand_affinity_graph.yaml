@@ -1,0 +1,7 @@
+# @package _global_
+
+model:
+  pooling: mean
+  out_head: linear
+  pe: sine
+  aggregation: dot
