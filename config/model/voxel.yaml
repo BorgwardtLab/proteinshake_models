@@ -3,6 +3,6 @@ num_layers: 5
 embed_dim: 256
 kernel_size: 3
 dropout: 0.0
-pooling: max
+pooling: mean
 out_head: linear
 aggregation: dot
