@@ -4,17 +4,17 @@ We build GNN, PointNet, and VoxelNet as baseline methods and perform evaluation 
 
 ## Results
 
-| Model    | Split  | EC | pfam LA | BSD | StructC | StructSIM |
-|:---------|:-------|:---|:--------|:----|:--------|:----------|
-| GNN      | rand   |    |         |     |         |           |
-| GNN      | seq    |    |         |     |         |           |
-| GNN      | struct |    |         |     |         |           |
-| PointNet | rand   |    |         |     |         |           |
-| PointNet | seq    |    |         |     |         |           |
-| PointNet | struct |    |         |     |         |           |
-| VoxelNet | rand   |    |         |     |         |           |
-| VoxelNet | seq    |    |         |     |         |           |
-| VoxelNet | struct |    |         |     |         |           |
+| Model    | Split  | EC | pfam | LA | BSD | StructC | StructSIM |
+|:---------|:-------|:---|:-----|:---|:----|:--------|:----------|
+| GNN      | rand   |    |      |    |     |         |           |
+| GNN      | seq    |    |      |    |     |         |           |
+| GNN      | struct |    |      |    |     |         |           |
+| PointNet | rand   |    |      |    |     |         |           |
+| PointNet | seq    |    |      |    |     |         |           |
+| PointNet | struct |    |      |    |     |         |           |
+| VoxelNet | rand   |    |      |    |     |         |           |
+| VoxelNet | seq    |    |      |    |     |         |           |
+| VoxelNet | struct |    |      |    |     |         |           |
 
 
 ## TODO
