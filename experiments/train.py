@@ -55,6 +55,8 @@ class ProteinTaskTrainer(pl.LightningModule):
         self.y_transform = y_transform
         self.output_dir = Path(cfg.paths.log_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.validation_step_outputs = []
+        self.test_step_outputs = []
 
     def inverse_transform(self, y_true, y_pred):
         if self.y_transform is None:
@@ -84,7 +86,9 @@ class ProteinTaskTrainer(pl.LightningModule):
         loss = self.criterion(y_hat, y)
 
         self.log('val_loss', loss, batch_size=len(y))
-        return {'y_pred': y_hat, 'y_true': y}
+        outputs = {'y_pred': y_hat, 'y_true': y}
+        self.validation_step_outputs.append(outputs)
+        return outputs
 
     def evaluate_epoch_end(self, outputs, stage='val'):
         all_preds = torch.vstack([out['y_pred'] for out in outputs])
@@ -98,20 +102,23 @@ class ProteinTaskTrainer(pl.LightningModule):
             self.log_dict(scores)
         return scores
 
-    def validation_epoch_end(self, outputs):
-        scores = self.evaluate_epoch_end(outputs, 'val')
+    def on_validation_epoch_end(self):
+        scores = self.evaluate_epoch_end(self.validation_step_outputs, 'val')
         if scores[self.main_val_metric] >= self.best_val_score:
             self.best_val_score = scores[self.main_val_metric]
             self.best_weights = copy.deepcopy(self.model.state_dict())
+        self.validation_step_outputs.clear()
         return scores
 
     def test_step(self, batch, batch_idx):
         y_hat, y = self.model.step(batch)
         loss = self.criterion(y_hat, y)
-        return {'y_pred': y_hat, 'y_true': y}
+        outputs = {'y_pred': y_hat, 'y_true': y}
+        self.test_step_outputs.append(outputs)
+        return outputs
 
-    def test_epoch_end(self, outputs):
-        scores = self.evaluate_epoch_end(outputs, 'test')
+    def on_test_epoch_end(self):
+        scores = self.evaluate_epoch_end(self.test_step_outputs, 'test')
         scores['best_val_score'] = self.best_val_score
         df = pd.DataFrame.from_dict(scores, orient='index')
         df.to_csv(Path(self.logger.log_dir) / "results.csv",
@@ -119,6 +126,7 @@ class ProteinTaskTrainer(pl.LightningModule):
         df.to_csv(self.output_dir / "results.csv",
                   header=['value'], index_label='name')
         log.info(f"Test scores:\n{df}")
+        self.test_step_outputs.clear()
         return scores
 
     def configure_optimizers(self):
