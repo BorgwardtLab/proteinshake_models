@@ -2,6 +2,21 @@
 
 We build GNN, PointNet, and VoxelNet as baseline methods and perform evaluation on the proteinshake tasks.
 
+## Results
+
+| Model    | Split  | EC | pfam LA | BSD | StructC | StructSIM |
+|:---------|:-------|:---|:--------|:----|:--------|:----------|
+| GNN      | rand   |    |         |     |         |           |
+| GNN      | seq    |    |         |     |         |           |
+| GNN      | struct |    |         |     |         |           |
+| PointNet | rand   |    |         |     |         |           |
+| PointNet | seq    |    |         |     |         |           |
+| PointNet | struct |    |         |     |         |           |
+| VoxelNet | rand   |    |         |     |         |           |
+| VoxelNet | seq    |    |         |     |         |           |
+| VoxelNet | struct |    |         |     |         |           |
+
+
 ## TODO
 
 #### Tasks
