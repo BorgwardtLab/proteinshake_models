@@ -36,7 +36,7 @@ from scipy.stats import spearmanr
 def compute_metrics(y_true, y_score, task):
     _, task_type = task.task_type
     y_pred = y_score
-    if task_type == "multi_class":
+    if task_type == "multi_class" or task_type == "multi-class":
         y_pred = y_score.argmax(-1)
         scores = task.evaluate(y_true, y_pred)
     elif task_type == "multi_label":

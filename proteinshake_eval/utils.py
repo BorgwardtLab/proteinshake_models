@@ -69,7 +69,7 @@ def get_cosine_schedule_with_warmup(optimizer, warmup_epochs, max_epochs):
 
 
 def get_loss(task_type):
-    if task_type == "multi_class":
+    if task_type == "multi_class" or task_type == 'multi-class':
         return nn.CrossEntropyLoss(), 'accuracy'
     elif task_type == "multi_label":
         return nn.BCEWithLogitsLoss(), 'Fmax'
