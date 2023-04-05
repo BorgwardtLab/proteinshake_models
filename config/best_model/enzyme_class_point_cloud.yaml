@@ -1,5 +1,5 @@
 # @package _global_
 
 model:
-  pooling: mean
+  pooling: max
   out_head: linear
