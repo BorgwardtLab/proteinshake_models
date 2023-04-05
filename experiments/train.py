@@ -70,13 +70,6 @@ class ProteinTaskTrainer(pl.LightningModule):
             reg_loss = self.model.encoder.regularizer_loss()
             loss = loss + reg_loss
 
-        if 'classification' in self.task.task_type:
-            if 'binary' in self.task.task_type:
-                acc = ((y_hat.detach() > 0).float() == y).float().mean().item()
-                self.log("train_acc", acc, on_step=False, on_epoch=True, batch_size=1, prog_bar=True)
-            else:
-                acc = (y_hat.detach().argmax(dim=-1) == y).float().mean().item()
-                self.log("train_acc", acc, on_step=False, on_epoch=True, batch_size=1, prog_bar=True)
         self.log("train_loss", loss, on_step=False, on_epoch=True, batch_size=1)
 
         return loss

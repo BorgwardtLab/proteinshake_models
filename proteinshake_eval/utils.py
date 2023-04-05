@@ -76,7 +76,7 @@ def get_loss(task_type):
     elif task_type == "binary":
         return nn.BCEWithLogitsLoss(), 'accuracy'
     elif task_type == "regression":
-        return nn.L1Loss(), 'mse'
+        return nn.L1Loss(), 'spearmanr'
 
 # class Aggregator(nn.Module):
 #     def __init__(self, embed_dim=256, aggregation='concat', normalize=False):
