@@ -3,3 +3,7 @@
 model:
   pooling: mean
   aggregation: concat
+
+training:
+  lr: 0.0005
+  epochs: 50
