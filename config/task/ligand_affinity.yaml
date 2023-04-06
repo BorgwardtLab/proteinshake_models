@@ -2,3 +2,4 @@ name: ligand_affinity
 path: ${paths.data_dir}/ligand_affinity
 class_name: LigandAffinityTask
 split: random
+metric: spearmanr

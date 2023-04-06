@@ -48,7 +48,8 @@ class ProteinTaskTrainer(pl.LightningModule):
         self.model = model
         self.cfg = cfg
         self.task = task
-        self.criterion, self.main_metric = get_loss(task.task_type[1])
+        self.criterion = get_loss(task.task_type[1])
+        self.main_metric = cfg.task.metric
         self.best_val_score = -float('inf')
         self.main_val_metric = 'val_' + self.main_metric
         self.best_weights = None

@@ -2,3 +2,4 @@ name: structure_similarity
 path: ${paths.data_dir}/structure_similarity
 class_name: StructureSimilarityTask
 split: random
+metric: spearmanr

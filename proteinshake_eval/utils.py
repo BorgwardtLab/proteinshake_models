@@ -70,13 +70,13 @@ def get_cosine_schedule_with_warmup(optimizer, warmup_epochs, max_epochs):
 
 def get_loss(task_type):
     if task_type == "multi_class" or task_type == 'multi-class':
-        return nn.CrossEntropyLoss(), 'accuracy'
+        return nn.CrossEntropyLoss()
     elif task_type == "multi_label":
-        return nn.BCEWithLogitsLoss(), 'Fmax'
+        return nn.BCEWithLogitsLoss()
     elif task_type == "binary":
-        return nn.BCEWithLogitsLoss(), 'accuracy'
+        return nn.BCEWithLogitsLoss()
     elif task_type == "regression":
-        return nn.L1Loss(), 'spearmanr'
+        return nn.L1Loss()
 
 # class Aggregator(nn.Module):
 #     def __init__(self, embed_dim=256, aggregation='concat', normalize=False):
