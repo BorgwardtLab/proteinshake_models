@@ -6,6 +6,36 @@ from .point import PointNet_encoder
 from .voxel import VoxelNet_encoder
 
 
+NUM_PROTEINS = 20
+
+def build_encoder(cfg):
+    if cfg.name == 'gnn':
+        return GNN_encoder(
+            cfg.embed_dim,
+            cfg.num_layers,
+            cfg.dropout,
+            cfg.gnn_type,
+            cfg.use_edge_attr,
+            cfg.pe,
+            cfg.pooling,
+        )
+    elif cfg.name == 'point_net':
+        return PointNet_encoder(
+            cfg.embed_dim,
+            cfg.pooling,
+            cfg.alpha
+        )
+    elif cfg.name == 'voxel_net':
+        return VoxelNet_encoder(
+            cfg.embed_dim,
+            cfg.num_layers,
+            cfg.kernel_size,
+            cfg.dropout,
+            cfg.pooling,
+        )
+    else:
+        raise ValueError("Not implemented!")
+
 class TaskHead(nn.Module):
     def __init__(self, task, embed_dim=256, out_head='linear',
                  aggregation='dot'):
@@ -50,46 +80,47 @@ class TaskHead(nn.Module):
         return self.classifier(x)
 
 
+class ProteinStructureEncoder(nn.Module):
+    def __init__(self, cfg):
+        super().__init__()
+
+        self.cfg = cfg
+
+        self.encoder = build_encoder(cfg)
+
+        self.head = nn.Linear(cfg.embed_dim, NUM_PROTEINS)
+
+    def forward(self, data):
+        output = self.encoder(data)
+        return self.head(output[data.masked_indices])
+
+    def step(self, batch):
+        y = batch.masked_label
+        y_hat = self(batch)
+        return y_hat, y
+
+    def save(self, path):
+        torch.save(
+            {'cfg': self.cfg,
+            'state_dict': self.encoder.state_dict(),
+            'head_state_dict': self.head.state_dict()
+            },
+            path
+        )
+
+
 class ProteinStructureNet(nn.Module):
     def __init__(self, cfg, task):
         super().__init__()
         self.cfg = cfg
         # Build protein encoder
-        self.encoder = self.build_encoder(cfg)
+        self.encoder = build_encoder(cfg)
 
         # Build task head
         self.task_head = self.build_task_head(cfg, task)
 
         self.encode_other = task.pair_data
         self.encode_other_protein = task.task_type[0] == 'protein_pair'
-
-    def build_encoder(self, cfg):
-        if cfg.name == 'gnn':
-            return GNN_encoder(
-                cfg.embed_dim,
-                cfg.num_layers,
-                cfg.dropout,
-                cfg.gnn_type,
-                cfg.use_edge_attr,
-                cfg.pe,
-                cfg.pooling,
-            )
-        elif cfg.name == 'point_net':
-            return PointNet_encoder(
-                cfg.embed_dim,
-                cfg.pooling,
-                cfg.alpha
-            )
-        elif cfg.name == 'voxel_net':
-            return VoxelNet_encoder(
-                cfg.embed_dim,
-                cfg.num_layers,
-                cfg.kernel_size,
-                cfg.dropout,
-                cfg.pooling,
-            )
-        else:
-            raise ValueError("Not implemented!")
 
     def build_task_head(self, cfg, task):
         return TaskHead(

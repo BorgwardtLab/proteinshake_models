@@ -44,26 +44,10 @@ class VoxelNet_encoder(nn.Module):
         self.pooling = build_pooling(pooling, dim=(1, 2, 3))
 
     def forward(self, data):
-        x, mask = data.x, data.mask
-        output = self.encoder(x).permute(0, 2, 3, 4, 1)
+        output = self.encoder(data.x).permute(0, 2, 3, 4, 1)
         if self.pooling is not None:
-            output = self.pooling(output, mask)
+            output = self.pooling(output, data.mask)
         return output
 
     def from_pretrained(self, model_path):
         self.encoder.load_state_dict(torch.load(model_path)['state_dict'])
-
-# class VoxelNet_Pretraining(Template):
-
-#     def __init__(self, input_dim, hidden_dim, num_layers, kernel_size, dropout):
-#         super().__init__()
-#         self.base = VoxelNetBase(input_dim, hidden_dim, num_layers, kernel_size, dropout)
-#         self.head = nn.Linear(hidden_dim, 20)
-
-#     def step(self, batch):
-#         data, masked, mask = batch
-#         node_embs = self.base(masked).permute(0,2,3,4,1)
-#         node_embs = node_embs[mask]
-#         y_hat = self.head(node_embs)
-#         y = data[mask]
-#         return y_hat, torch.argmax(y, -1) # each voxel can have multiple amino acids, so the last dimension is a float value indicating the fraction of amino acid X in the voxel

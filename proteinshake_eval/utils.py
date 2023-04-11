@@ -13,17 +13,6 @@ def get_task(task_name):
     all_task_classes = importlib.import_module('proteinshake.tasks')
     return getattr(all_task_classes, task_name)
 
-
-# class OneHotToIndex(object):
-#     def __call__(self, data):
-#         data.x = data.x.argmax(dim=-1)
-#         return data
-
-# class ResidueIdx(object):
-#     def __call__(self, data):
-#         data.residue_idx = torch.arange(data.num_nodes)
-#         return data
-
 def get_filter_mask(dataset, task, n=3000):
     """Filter proteins with length > n
     """
@@ -77,34 +66,3 @@ def get_loss(task_type):
         return nn.BCEWithLogitsLoss()
     elif task_type == "regression":
         return nn.L1Loss()
-
-# class Aggregator(nn.Module):
-#     def __init__(self, embed_dim=256, aggregation='concat', normalize=False):
-#         super().__init__()
-#         self.aggregation = aggregation
-#         self.normalize = normalize
-
-#         if aggregation == 'concat':
-#             self.aggregator = nn.Sequential(
-#                 nn.Linear(2 * embed_dim, embed_dim),
-#                 nn.ReLU(True),
-#                 nn.Linear(embed_dim, embed_dim)
-#             )
-#         elif aggregation == 'dot' or aggregation == 'sum':
-#             self.aggregator = nn.Sequential(
-#                 nn.Linear(embed_dim, embed_dim),
-#                 nn.ReLU(True),
-#                 nn.Linear(embed_dim, embed_dim)
-#             )
-
-#     def forward(self, x1, x2):
-#         if self.normalize:
-#             x1 = F.normalize(x1, dim=-1)
-#             x2 = F.normalize(x2, dim=-1)
-#         if self.aggregation == 'concat':
-#             x = torch.cat((x1, x2), dim=-1)
-#         elif self.aggregation == 'dot':
-#             x = x1 * x2
-#         elif self.aggregation == 'sum':
-#             x = x1 + x2
-#         return self.aggregator(x)

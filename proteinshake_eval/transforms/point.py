@@ -84,7 +84,7 @@ class PointPretrainTransform(object):
         data.mask = mask.unsqueeze(0)
         return data
 
-class PointMasking(object):
+class MaskPoint(object):
     def __init__(self, num_point_types=20, mask_rate=0.15):
         self.num_point_types = num_point_types
         self.mask_rate = mask_rate
@@ -95,38 +95,8 @@ class PointMasking(object):
         subset_mask = torch.rand(num_points) < self.mask_rate
         subset_mask = F.pad(subset_mask, (0, max_len - num_points))
 
-        data.masked_point_indices = subset_mask.unsqueeze(0)
-        data.masked_point_label = data.labels[0, subset_mask]
+        data.masked_indices = subset_mask.unsqueeze(0)
+        data.masked_label = data.labels[0, subset_mask]
         data.labels[0, subset_mask] = self.num_point_types
 
         return data
-
-# class PointEnzymeClassTransform():
-
-#     def __init__(self, task):
-#         self.task = task
-
-#     def __call__(self, data):
-#         data, protein_dict = data
-#         coords, labels = data[:,:3], data[:,3]
-#         labels = torch.eye(20)[labels.long()].float()
-#         L = 1024
-#         coords = torch.nn.functional.pad(coords[:L], (0,0,0,max(0,L-coords.shape[0])))
-#         labels = torch.nn.functional.pad(labels[:L], (0,0,0,max(0,L-labels.shape[0])))
-#         ec = torch.eye(self.task.num_classes)[self.task.target(protein_dict)].float()
-#         return coords, labels, ec
-
-
-# class PointLigandAffinityTransform():
-
-#     def __init__(self, task):
-#         self.task = task
-
-#     def transform(self, data, protein_dict):
-#         coords, labels = data[:,:3], data[:,3]
-#         labels = torch.eye(20)[labels.long()].float()
-#         L = 1024
-#         coords = torch.nn.functional.pad(coords[:L], (0,0,0,max(0,L-coords.shape[0])))
-#         labels = torch.nn.functional.pad(labels[:L], (0,0,0,max(0,L-labels.shape[0])))
-#         la = torch.tensor(self.task.target(protein_dict)).float()
-#         return coords, labels, la

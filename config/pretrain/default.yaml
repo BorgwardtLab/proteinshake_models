@@ -1,0 +1,10 @@
+# @package _global_
+
+representation:
+  mask_rate: 0.15
+
+model:
+  pooling: null
+
+paths:
+  log_dir: logs/pretrain/${task.name}/${representation.name}/${seed}

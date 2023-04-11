@@ -23,9 +23,9 @@ class MaskNode(object):
         num_nodes = data.num_nodes
         subset_mask = torch.rand(num_nodes) < self.mask_rate
 
-        data.masked_node_indices = subset_mask
-        data.masked_node_label = data.x[subset_mask]
-        # data.x = data.x.clone()
+        data.masked_indices = subset_mask
+        data.masked_label = data.x[subset_mask]
+
         data.x[subset_mask] = self.num_node_types
 
         return data

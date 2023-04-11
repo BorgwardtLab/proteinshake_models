@@ -74,6 +74,14 @@ pip install -e .
 
 ## Training
 
+#### Supervised training/Finetuning
+
 ```bash
 python experiments/train.py task=enzyme_class
+```
+
+#### Pretraining with masked residue prediction
+
+```bash
+python experiments/pretrain_mask_residues.py representation=graph
 ```

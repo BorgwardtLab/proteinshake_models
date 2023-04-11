@@ -170,7 +170,7 @@ def main(cfg: DictConfig) -> None:
         all_y = task.train_targets
         y_transform = StandardScaler().fit(all_y.reshape(-1, 1))
 
-    dset = get_transformed_dataset(cfg.representation, dset, task, y_transform, max_len=3000)
+    dset = get_transformed_dataset(cfg.representation, dset, task, y_transform)
     if "pair" in task.task_type[0] or cfg.task.name == 'ligand_affinity':
         task.pair_data = True
     else:
