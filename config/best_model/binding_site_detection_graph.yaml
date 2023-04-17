@@ -3,7 +3,6 @@
 model:
   pooling: null
   out_head: linear
-  pe: sine
 
 training:
   lr: 0.005

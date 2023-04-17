@@ -3,4 +3,3 @@
 model:
   pooling: mean
   out_head: linear
-  pe: sine

@@ -3,4 +3,3 @@
 model:
   pooling: null
   out_head: linear
-  pe: sine

@@ -4,7 +4,7 @@ embed_dim: 256
 gnn_type: gin
 dropout: 0.0
 pooling: mean
-pe: sine
+pe: null
 out_head: linear
 aggregation: dot
 use_edge_attr: false
