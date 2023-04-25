@@ -3,6 +3,7 @@ from torch import nn
 from .aggregator import Aggregator
 from .graph import GNN_encoder
 from .point import PointNet_encoder
+from .point2 import PointNetPlusPlus_encoder
 from .voxel import VoxelNet_encoder
 
 
@@ -20,10 +21,14 @@ def build_encoder(cfg):
             cfg.pooling,
         )
     elif cfg.name == 'point_net':
-        return PointNet_encoder(
+        # return PointNet_encoder(
+        #     cfg.embed_dim,
+        #     cfg.pooling,
+        #     cfg.alpha
+        # )
+        return PointNetPlusPlus_encoder(
             cfg.embed_dim,
-            cfg.pooling,
-            cfg.alpha
+            cfg.pooling
         )
     elif cfg.name == 'voxel_net':
         return VoxelNet_encoder(

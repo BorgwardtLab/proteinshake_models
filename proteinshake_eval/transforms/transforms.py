@@ -1,10 +1,10 @@
 from .graph import GraphTrainTransform, GraphPairTrainTransform
-from .point import PointTrainTransform, PointPairTrainTransform
+from .point2 import PointTrainTransform, PointPairTrainTransform
 from .voxel import VoxelTrainTransform, VoxelPairTrainTransform
 from .utils import PPIDataset
 from proteinshake.transforms import Compose
 from .graph import GraphPretrainTransform, MaskNode
-from .point import PointPretrainTransform, MaskPoint
+from .point2 import PointPretrainTransform, MaskPoint
 from .voxel import VoxelPretrainTransform
 
 
@@ -14,7 +14,7 @@ def get_transformed_dataset(cfg, dataset, task, y_transform=None):
             data_transform = GraphPairTrainTransform()
             dataset = dataset.to_graph(eps=cfg.graph_eps).pyg()
         elif cfg.name == 'point_cloud':
-            data_transform = PointPairTrainTransform(max_len=max_len)
+            data_transform = PointPairTrainTransform()
             dataset = dataset.to_point().torch()
         elif cfg.name == 'voxel':
             data_transform = VoxelPairTrainTransform()
@@ -32,7 +32,7 @@ def get_transformed_dataset(cfg, dataset, task, y_transform=None):
         data_transform = GraphTrainTransform(task, y_transform)
         return dataset.to_graph(eps=cfg.graph_eps).pyg(transform=data_transform)
     elif cfg.name == 'point_cloud':
-        data_transform = PointTrainTransform(task, y_transform, max_len=cfg.max_len)
+        data_transform = PointTrainTransform(task, y_transform)
         return dataset.to_point().torch(transform=data_transform)
     elif cfg.name == 'voxel':
         data_transform = VoxelTrainTransform(task, y_transform)
@@ -49,7 +49,7 @@ def get_pretrain_dataset(cfg, dataset):
         return dataset.to_graph(eps=cfg.graph_eps).pyg(transform=data_transform)
     elif cfg.name == 'point_cloud':
         data_transform = Compose([
-            PointPretrainTransform(max_len=cfg.max_len),
+            PointPretrainTransform(),
             MaskPoint(mask_rate=cfg.mask_rate)
         ])
         return dataset.to_point().torch(transform=data_transform)
