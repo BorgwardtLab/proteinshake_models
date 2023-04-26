@@ -7,4 +7,4 @@ model:
   pooling: null
 
 paths:
-  log_dir: logs/pretrain/${task.name}/${representation.name}/${seed}
+  log_dir: ${paths.log_prefix}/pretrain/${task.name}/${representation.name}/${seed}
