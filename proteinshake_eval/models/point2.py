@@ -56,11 +56,11 @@ class PointNetPlusPlus(nn.Module):
         )
         self.sa2_module = SetAbstraction(
             0.5, 0.4,
-            MLP([embed_dim * 2 + 3, embed_dim * 2, embed_dim * 2, embed_dim * 4])
+            MLP([embed_dim * 2 + 3, embed_dim * 2, embed_dim * 2, embed_dim * 2])
         )
 
         self.fp2_module = FPModule(3,
-            MLP([embed_dim * 4 + embed_dim * 2, embed_dim * 4, embed_dim * 2]))
+            MLP([embed_dim * 2 + embed_dim * 2, embed_dim * 2, embed_dim * 2]))
         self.fp1_module = FPModule(3,
             MLP([embed_dim * 2 + embed_dim, embed_dim * 2, embed_dim * 2, embed_dim]))
 
