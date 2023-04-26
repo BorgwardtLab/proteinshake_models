@@ -51,11 +51,11 @@ class PointNetPlusPlus(nn.Module):
             NUM_PROTEINS_MASK + 1, embed_dim, padding_idx= NUM_PROTEINS_MASK)
 
         self.sa1_module = SetAbstraction(
-            0.2, 0.2,
+            0.5, 0.2,
             MLP([embed_dim + 3, embed_dim, embed_dim, embed_dim * 2])
         )
         self.sa2_module = SetAbstraction(
-            0.25, 0.4,
+            0.5, 0.4,
             MLP([embed_dim * 2 + 3, embed_dim * 2, embed_dim * 2, embed_dim * 4])
         )
 

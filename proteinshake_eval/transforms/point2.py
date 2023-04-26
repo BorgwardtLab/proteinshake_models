@@ -2,6 +2,15 @@ import torch
 import torch.nn.functional as F
 from torch_geometric.data import Data
 from .utils import reshape_data, add_other_data
+import torch_geometric.transforms as T
+
+transform = T.Compose([
+    T.NormalizeScale(),
+    # T.RandomJitter(0.01),
+    # T.RandomRotate(15, axis=0),
+    # T.RandomRotate(15, axis=1),
+    # T.RandomRotate(15, axis=2)
+])
 
 
 class PointTrainTransform(object):
@@ -21,7 +30,7 @@ class PointTrainTransform(object):
         data.y = target
         data = reshape_data(data, self.task_type)
         data = add_other_data(data, self.task, protein_dict)
-        return data
+        return transform(data)
 
 
 class PointPairTrainTransform(object):
@@ -32,7 +41,7 @@ class PointPairTrainTransform(object):
         data = Data()
         data.pos = pos
         data.x = x.long()
-        return data
+        return transform(data)
 
 
 class PointPretrainTransform(object):
@@ -42,7 +51,7 @@ class PointPretrainTransform(object):
         data = Data()
         data.pos = pos
         data.x = x.long()
-        return data
+        return transform(data)
 
 class MaskPoint(object):
     def __init__(self, num_point_types=20, mask_rate=0.15):
