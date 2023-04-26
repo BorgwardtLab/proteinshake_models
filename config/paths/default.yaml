@@ -1,4 +1,5 @@
 # path to data directory
 data_dir: data
 output_dir: ${hydra:runtime.output_dir}
-log_dir: logs/${task.name}/${task.split}/${representation.name}/${pretrained}/${seed}
+log_prefix: logs
+log_dir: ${paths.log_prefix}/${task.name}/${task.split}/${representation.name}/${pretrained}/${seed}
