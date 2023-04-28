@@ -1,6 +1,6 @@
 name: point_net
 embed_dim: 128
-pooling: max
+pooling: mean
 out_head: linear
 aggregation: dot
 alpha: 0.001
