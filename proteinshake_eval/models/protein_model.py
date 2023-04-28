@@ -107,7 +107,7 @@ class ProteinStructureEncoder(nn.Module):
     def save(self, path):
         torch.save(
             {'cfg': self.cfg,
-            'state_dict': self.encoder.state_dict(),
+            'state_dict': self.encoder.encoder.state_dict(),
             'head_state_dict': self.head.state_dict()
             },
             path
