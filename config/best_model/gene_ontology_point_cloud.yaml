@@ -1,0 +1,4 @@
+# @package _global_
+
+training:
+  lr: 0.005
