@@ -1,0 +1,14 @@
+\begin{tabular}{lccc}
+\toprule
+Representation & Graph & Point & Voxel \\
+Task &  &  &  \\
+\midrule
+Binding Site & \textbf{0.721 $\pm$ 0.010} & 0.609 $\pm$ 0.006 & - \\
+Enzyme Class & \textbf{0.790 $\pm$ 0.007} & 0.712 $\pm$ 0.016 & 0.656 $\pm$ 0.012 \\
+Gene Ontology & \textbf{0.704 $\pm$ 0.001} & 0.580 $\pm$ 0.002 & 0.609 $\pm$ 0.004 \\
+Ligand Affinity & 0.670 $\pm$ 0.019 & 0.683 $\pm$ 0.003 & \textbf{0.690 $\pm$ 0.015} \\
+Protein Family & \textbf{0.728 $\pm$ 0.004} & 0.609 $\pm$ 0.004 & 0.543 $\pm$ 0.007 \\
+Structural Class & \textbf{0.495 $\pm$ 0.012} & 0.293 $\pm$ 0.013 & 0.221 $\pm$ 0.014 \\
+Structure Similarity & 0.598 $\pm$ 0.018 & \textbf{0.627 $\pm$ 0.006} & 0.620 $\pm$ 0.010 \\
+\bottomrule
+\end{tabular}

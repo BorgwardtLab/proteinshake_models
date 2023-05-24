@@ -1,0 +1,112 @@
+import matplotlib.pyplot as plt
+import seaborn as sns
+import pandas as pd
+import numpy as np
+from matplotlib.lines import Line2D
+
+
+df = pd.read_csv('results.csv')
+column_map = {'task':'Task','split':'Split','representation':'Representation','pretrained':'Pre-trained'}
+task_map = {'enzyme_class':'Enzyme Class', 'pfam':'Protein Family', 'ligand_affinity': 'Ligand Affinity', 'binding_site_detection': 'Binding Site', 'structure_similarity': 'Structure Similarity', 'structural_class': 'Structural Class', 'gene_ontology':'Gene Ontology'}
+task_map_short = {'Enzyme Class':'EC', 'Protein Family':'PF', 'Ligand Affinity': 'LA', 'Binding Site': 'BS', 'Structure Similarity': 'SS', 'Structural Class': 'SC', 'Gene Ontology':'GO'}
+split_map = {'random':'Random', 'sequence':'Sequence', 'structure':'Structure'}
+split_map_short = {'Random':'Rnd', 'Sequence':'Seq', 'Structure':'Str'}
+rep_map = {'point_cloud':'Point', 'voxel':'Voxel', 'graph':'Graph'}
+dfs = []
+for seed in range(4):
+    d = df[[f'test_score_{seed}','metric','task','split','representation','pretrained']].rename(columns={f'test_score_{seed}':'Score',**column_map})
+    d['Seed'] = seed
+    dfs.append(d)
+df = pd.concat(dfs)
+df.Task = df.Task.map(task_map)
+df.Split = df.Split.map(split_map)
+df.Representation = df.Representation.map(rep_map)
+
+'''
+# 1 (supplement): Representations. Table of Representations vs. Task vs. Split
+table = df[~df['Pre-trained']]
+table.loc[:,'Split'] = table['Split'].map(split_map_short)
+mean = table.groupby(['Task','Representation','Split']).agg({'Score':'mean'}).unstack(level=1)
+mean.columns = mean.columns.droplevel(0)
+max_indices = mean.idxmax(axis=1)
+mask = mean.applymap(lambda x: False)
+for i,v in max_indices.items(): mask.loc[i,v] = True
+table = mean.applymap('{:.3f}'.format).astype(str)
+table = table.mask(mask, lambda x: '\\textbf{'+x+'}')
+table = table.unstack(level=1)
+#table = table.swaplevel(0, 1, axis=1)
+#table.sort_index(axis=1, level=0, inplace=True)
+table = table.to_latex(escape=False).replace('nan','-').replace('llll','lccc')
+with open(f'1_Representation.txt','w') as file:
+        file.write(table)
+'''
+
+'''
+# 1 (supplement): Representations. Table of Representations vs. Task, per Split
+data = df[~df['Pre-trained']]
+for split in df.Split.unique():
+    table = data[data.Split == split]
+    mean = table.groupby(['Task','Representation']).agg({'Score':'mean'}).unstack(level=1)
+    std = table.groupby(['Task','Representation']).agg({'Score':'std'}).unstack(level=1)
+    mean.columns = mean.columns.droplevel(0)
+    std.columns = std.columns.droplevel(0)
+    max_indices = mean.idxmax(axis=1)
+    mask = mean.applymap(lambda x: False)
+    for i,v in max_indices.items(): mask.loc[i,v] = True
+    table = mean.applymap('{:.3f}'.format).astype(str) + ' $\pm$ ' + std.applymap('{:.3f}'.format).astype(str)
+    table = table.mask(mask, lambda x: '\\textbf{'+x+'}')
+    table = table.to_latex(escape=False).replace('nan $\pm$ nan','-').replace('llll','lccc')
+    with open(f'1_Representation_{split}.txt','w') as file:
+        file.write(table)
+'''
+
+# 2: Splits. Barplot, Supergroup: Representation, Group: Split, per Pretraining
+fig, axes = plt.subplots(2,4, figsize=(10,5))
+data = df[~df['Pre-trained']]
+data['metric'] = data['metric'].map({'accuracy':'Accuracy', 'spearmanr':'Spearman R', 'mcc':'MCC', 'Fmax':'$F_{max}$'})
+#data.loc[:,'Task'] = data['Task'].map(task_map_short)
+for ax,task in zip(axes.flatten(), df.Task.unique()):
+    task_data = data[data.Task == task]
+    if len(task_data) == 0: continue
+    ax.title.set_text(task)
+    sns.barplot(data=task_data, x='Representation', y='Score', hue='Split', ax=ax, palette=['lightsalmon','darkseagreen','skyblue'])
+    ax.get_legend().remove()
+    ax.set_ylabel(task_data.metric.to_list()[0])
+    ax.set_xlabel('')
+
+custom_lines = [Line2D([0], [0], color='lightsalmon', lw=6),
+                Line2D([0], [0], color='darkseagreen', lw=6),
+                Line2D([0], [0], color='skyblue', lw=6)]
+axes[0,2].legend(custom_lines, ['Random Split','Sequence Split','Structure Split'], bbox_to_anchor=(1.3,1.5), ncols=3, handlelength=0.5, frameon=False)
+plt.subplots_adjust(top=0.85, hspace=0.5, wspace=0.5)
+plt.savefig(f'2_Splits.svg')
+plt.close()
+
+exit()
+
+# 3: Pretraining (alt). Barplot, relative improvement, Supergroup: Task, Group: Split, Subplot: Rep
+fig, axes = plt.subplots(1,3, figsize=(10,3))
+pt, no_pt = df[df['Pre-trained']], df[~df['Pre-trained']]
+data = pd.concat([no_pt,pt], ignore_index=True)
+data['Task'] = data['Task'].map(task_map_short)
+data['Difference'] = data.groupby(['Task','Representation','Split','Seed'])['Score'].diff()
+no_pt = data[~data['Pre-trained']]
+data = data[data['Pre-trained']]
+data['Improvement [%]'] = data['Difference'].to_numpy() / no_pt['Score'].to_numpy() * 100
+data = data[data['Split']=='Random']
+for ax,rep in zip(axes.flatten(), df.Representation.unique()):
+    rep_data = data[(data.Representation == rep)]
+    order = rep_data.groupby('Task')['Improvement [%]'].mean().sort_values().index[::-1]
+    rep_data.Task = rep_data.Task.astype("category")
+    rep_data.Task = rep_data.Task.cat.set_categories(order)
+    ax.title.set_text(rep)
+    boxes = sns.pointplot(data=rep_data, y='Task', x='Improvement [%]', ax=ax, join=False, errorbar='sd', color='lightsteelblue')
+    ax.axvline(0, color='lightcoral', dashes=(3,3))
+    ax.grid()
+    lim = rep_data['Improvement [%]'].max()
+    ax.set_xlim((-lim,lim))
+    for path in ax.collections:
+        path.set(color='steelblue', zorder=10)
+plt.tight_layout()
+plt.savefig(f'3_Pretraining.svg')
+plt.close()
