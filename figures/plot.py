@@ -23,7 +23,7 @@ df.Split = df.Split.map(split_map)
 df.Representation = df.Representation.map(rep_map)
 
 '''
-# 1 (supplement): Representations. Table of Representations vs. Task vs. Split
+# 1 (one whole table): Representations. Table of Representations vs. Task vs. Split
 table = df[~df['Pre-trained']]
 table.loc[:,'Split'] = table['Split'].map(split_map_short)
 mean = table.groupby(['Task','Representation','Split']).agg({'Score':'mean'}).unstack(level=1)
@@ -41,8 +41,8 @@ with open(f'1_Representation.txt','w') as file:
         file.write(table)
 '''
 
-'''
-# 1 (supplement): Representations. Table of Representations vs. Task, per Split
+
+# 1: Representations. Table of Representations vs. Task, per Split
 data = df[~df['Pre-trained']]
 for split in df.Split.unique():
     table = data[data.Split == split]
@@ -58,7 +58,7 @@ for split in df.Split.unique():
     table = table.to_latex(escape=False).replace('nan $\pm$ nan','-').replace('llll','lccc')
     with open(f'1_Representation_{split}.txt','w') as file:
         file.write(table)
-'''
+
 
 # 2: Splits. Barplot, Supergroup: Representation, Group: Split, per Pretraining
 fig, axes = plt.subplots(2,4, figsize=(10,5))
@@ -82,7 +82,6 @@ plt.subplots_adjust(top=0.85, hspace=0.5, wspace=0.5)
 plt.savefig(f'2_Splits.svg')
 plt.close()
 
-exit()
 
 # 3: Pretraining (alt). Barplot, relative improvement, Supergroup: Task, Group: Split, Subplot: Rep
 fig, axes = plt.subplots(1,3, figsize=(10,3))
