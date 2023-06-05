@@ -38,7 +38,7 @@ def get_data_loaders(dataset, task, masks, batch_size, num_workers):
         train_loader = DataLoader(train_dset, batch_size=batch_size,
             shuffle=True, num_workers=num_workers)
         if task.task_type[0] == 'residue_pair':
-            batch_size = 1
+            batch_size = batch_size // 4
         val_loader = DataLoader(val_dset, batch_size=batch_size,
             shuffle=False, num_workers=num_workers)
         test_loader = DataLoader(test_dset, batch_size=batch_size,

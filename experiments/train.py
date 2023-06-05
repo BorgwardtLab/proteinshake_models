@@ -168,7 +168,10 @@ def main(cfg: DictConfig) -> None:
     dset = task.dataset
     
     # Filter out proteins longer than 3000
-    index_masks = get_filter_mask(dset, task, 3000)
+    max_len = 3000
+    if task.task_type[0] == 'residue_pair':
+        max_len //= 2
+    index_masks = get_filter_mask(dset, task, max_len)
 
     y_transform = None
     if task.task_type[1] == 'regression':
