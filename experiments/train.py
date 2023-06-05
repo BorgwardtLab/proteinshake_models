@@ -87,8 +87,10 @@ class ProteinTaskTrainer(pl.LightningModule):
     def evaluate_epoch_end(self, outputs, stage='val'):
         if isinstance(outputs[0]['y_pred'], list):
             import itertools
-            all_preds = list(itertools.chain(*[out['y_pred'] for out in outputs]))
-            all_true = list(itertools.chain(*[out['y_true'] for out in outputs]))
+            all_preds = itertools.chain(*[out['y_pred'] for out in outputs])
+            all_true = itertools.chain(*[out['y_true'] for out in outputs])
+            all_preds = [pred.cpu().numpy() for pred in all_preds]
+            all_true = [true.cpu().numpy() for true in all_true]
         else:
             all_preds = torch.vstack([out['y_pred'] for out in outputs])
             all_true = torch.cat([out['y_true'] for out in outputs])

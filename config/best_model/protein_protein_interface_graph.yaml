@@ -6,4 +6,5 @@ model:
   aggregation: dot
 
 training:
-  epochs: 50
+  epochs: 100
+  batch_size: 50
