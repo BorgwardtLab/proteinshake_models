@@ -23,11 +23,18 @@ def get_filter_mask(dataset, task, n=3000):
     train_mask = protein_len_list[task.train_index] <= n
     val_mask = protein_len_list[task.val_index] <= n
     test_mask = protein_len_list[task.test_index] <= n
+    if train_mask.ndim == 2:
+        train_mask, val_mask, test_mask = train_mask.all(-1), val_mask.all(-1), test_mask.all(-1)
     return train_mask, val_mask, test_mask
 
 def get_data_loaders(dataset, task, masks, batch_size, num_workers):
     if 'pair' in task.task_type[0]:
         train_dset, val_dset, test_dset = dataset
+        if masks is not None:
+            train_mask, val_mask, test_mask = masks
+            train_dset.set_split('train', train_mask)
+            val_dset.set_split('val', val_mask)
+            test_dset.set_split('test', test_mask)
         train_loader = DataLoader(train_dset, batch_size=batch_size,
             shuffle=True, num_workers=num_workers)
         if task.task_type[0] == 'residue_pair':
