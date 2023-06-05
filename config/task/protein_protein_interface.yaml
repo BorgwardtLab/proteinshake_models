@@ -2,4 +2,4 @@ name: protein_protein_interface
 path: ${paths.data_dir}/protein_protein_interface
 class_name: ProteinProteinInterfaceTask
 split: random
-metric: auprc_median
+metric: auroc_median

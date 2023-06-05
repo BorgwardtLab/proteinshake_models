@@ -55,7 +55,7 @@ class PPIDataset(object):
             if self.split == 'train':
                 pos_idx = y.nonzero().T
                 pos_size = pos_idx.shape[1]
-                neg_size = pos_size * 3
+                neg_size = pos_size# * 3
                 neg_idx = torch.vstack((
                     torch.randint(data1.num_nodes, (neg_size,)),
                     torch.randint(data2.num_nodes, (neg_size,))
