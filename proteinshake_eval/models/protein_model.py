@@ -75,14 +75,11 @@ class TaskHead(nn.Module):
                 nn.Linear(embed_dim // 4, num_class)
             )
 
-    def forward(self, x, other_x=None, index=None):
+    def forward(self, x, other_x=None):
         if self.pair_prediction:
             assert other_x is not None, "other_data should be provided!"
             if hasattr(self, 'other_encoder'):
                 other_x = self.other_encoder(other_x)
-            if index is not None:
-                x = x[index[0]]
-                other_x = other_x[index[1]]
             x = self.aggregator(x, other_x)
 
         return self.classifier(x)
@@ -138,44 +135,44 @@ class ProteinStructureNet(nn.Module):
             cfg.aggregation,
         )
 
-    def forward(self, data, other_data=None, index=None):
+    def forward(self, data, other_data=None):
         x = self.encoder(data)
+        if hasattr(data, 'sub_index'):
+            x = x[data.sub_index]
         other_x = other_data
         if self.encode_other_protein:
             assert other_data is not None, "other data should be provided"
             other_x = self.encoder(other_data)
+            if hasattr(other_data, 'sub_index'):
+                other_x = other_x[other_data.sub_index]
 
-        output = self.task_head(x, other_x, index)
+        output = self.task_head(x, other_x)
         return output
 
     def step(self, batch):
-        index = None
         if self.encode_other:
             if self.encode_other_protein:
                 data, other_x, y = batch
                 if hasattr(y, 'y'):
-                    index = y.complete_index
                     y = y.y
             else:
                 data, other_x, y = batch, batch.other_x, batch.y
         else:
             data, other_x, y = batch, None, batch.y
-        y_hat = self.forward(data, other_x, index)
+        y_hat = self.forward(data, other_x)
         return y_hat, y
 
     def val_step(self, batch):
-        index = None
         if self.encode_other:
             if self.encode_other_protein:
                 data, other_x, y = batch
                 if hasattr(y, 'y'):
-                    index = y.complete_index
                     y = y.y
             else:
                 data, other_x, y = batch, batch.other_x, batch.y
         else:
             data, other_x, y = batch, None, batch.y
-        y_hat = self.forward(data, other_x, index)
+        y_hat = self.forward(data, other_x)
         if y_hat.shape[0] > data.num_nodes:
             y_hat_new = []
             y_new = []
