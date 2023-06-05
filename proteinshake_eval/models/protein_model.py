@@ -163,6 +163,33 @@ class ProteinStructureNet(nn.Module):
         y_hat = self.forward(data, other_x, index)
         return y_hat, y
 
+    def val_step(self, batch):
+        index = None
+        if self.encode_other:
+            if self.encode_other_protein:
+                data, other_x, y = batch
+                if hasattr(y, 'y'):
+                    index = y.complete_index
+                    y = y.y
+            else:
+                data, other_x, y = batch, batch.other_x, batch.y
+        else:
+            data, other_x, y = batch, None, batch.y
+        y_hat = self.forward(data, other_x, index)
+        if y_hat.shape[0] > data.num_nodes:
+            y_hat_new = []
+            y_new = []
+            total = 0
+            for i in range(len(data.ptr) - 1):
+                size_i = data.ptr[i + 1] - data.ptr[i]
+                size_j = other_x.ptr[i + 1] - other_x.ptr[i]
+                y_hat_new.append(y_hat[total: total + size_i * size_j].view(size_i, size_j))
+                y_new.append(y[total: total + size_i * size_j].view(size_i, size_j))
+                total += size_i * size_j
+            y_hat = y_hat_new
+            y = y_new
+        return y_hat, y
+
     def from_pretrained(self, model_path):
         self.encoder.from_pretrained(model_path)
 

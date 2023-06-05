@@ -51,10 +51,21 @@ class PPIDataset(object):
         y = torch.tensor(self.task.target(protein_dict1, protein_dict2)).float()
         if self.task_type == 'binary':
             from torch_geometric.data import Data
-            s = torch.vstack((
-                torch.arange(data1.num_nodes).repeat_interleave(data2.num_nodes),
-                torch.arange(data2.num_nodes).repeat(data1.num_nodes)
-            ))
+            if self.split == 'train':
+                pos_idx = y.nonzero().T
+                pos_size = pos_idx.shape[1]
+                neg_size = pos_size * 3
+                neg_idx = torch.vstack((
+                    torch.randint(data1.num_nodes, (neg_size,)),
+                    torch.randint(data2.num_nodes, (neg_size,))
+                ))
+                s = torch.hstack((pos_idx, neg_idx))
+                y = y[s[0], s[1]]
+            else:
+                s = torch.vstack((
+                    torch.arange(data1.num_nodes).repeat_interleave(data2.num_nodes),
+                    torch.arange(data2.num_nodes).repeat(data1.num_nodes)
+                ))
             y = Data(y=y.view(-1, 1), complete_index=s, num_nodes=0)
         if self.task_type == 'regression':
             y = y.view(1)

@@ -76,19 +76,24 @@ class ProteinTaskTrainer(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        y_hat, y = self.model.step(batch)
-        loss = self.criterion(y_hat, y)
+        y_hat, y = self.model.val_step(batch)
+        # loss = self.criterion(y_hat, y)
 
-        self.log('val_loss', loss, batch_size=len(y))
+        # self.log('val_loss', loss, batch_size=len(y))
         outputs = {'y_pred': y_hat, 'y_true': y}
         self.validation_step_outputs.append(outputs)
         return outputs
 
     def evaluate_epoch_end(self, outputs, stage='val'):
-        all_preds = torch.vstack([out['y_pred'] for out in outputs])
-        all_true = torch.cat([out['y_true'] for out in outputs])
-        all_true, all_preds = all_true.cpu().numpy(), all_preds.cpu().numpy()
-        all_true, all_preds = self.inverse_transform(all_true, all_preds)
+        if isinstance(outputs[0]['y_pred'], list):
+            import itertools
+            all_preds = list(itertools.chain(*[out['y_pred'] for out in outputs]))
+            all_true = list(itertools.chain(*[out['y_true'] for out in outputs]))
+        else:
+            all_preds = torch.vstack([out['y_pred'] for out in outputs])
+            all_true = torch.cat([out['y_true'] for out in outputs])
+            all_true, all_preds = all_true.cpu().numpy(), all_preds.cpu().numpy()
+            all_true, all_preds = self.inverse_transform(all_true, all_preds)
         scores = compute_metrics(all_true, all_preds, self.task)
         # scores = self.task.evaluate(all_true, all_preds)
         scores = {'{}_'.format(stage) + str(key): val for key, val in scores.items()}
@@ -105,8 +110,8 @@ class ProteinTaskTrainer(pl.LightningModule):
         return scores
 
     def test_step(self, batch, batch_idx):
-        y_hat, y = self.model.step(batch)
-        loss = self.criterion(y_hat, y)
+        y_hat, y = self.model.val_step(batch)
+        # loss = self.criterion(y_hat, y)
         outputs = {'y_pred': y_hat, 'y_true': y}
         self.test_step_outputs.append(outputs)
         return outputs
