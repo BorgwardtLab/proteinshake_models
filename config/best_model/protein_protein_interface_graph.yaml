@@ -3,3 +3,7 @@
 model:
   pooling: null
   out_head: linear
+  aggregation: dot
+
+training:
+  epochs: 50

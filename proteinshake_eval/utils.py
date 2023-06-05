@@ -26,7 +26,7 @@ def get_filter_mask(dataset, task, n=3000):
     return train_mask, val_mask, test_mask
 
 def get_data_loaders(dataset, task, masks, batch_size, num_workers):
-    if task.task_type[0] == "protein_pair":
+    if 'pair' in task.task_type[0]:
         train_dset, val_dset, test_dset = dataset
         train_loader = DataLoader(train_dset, batch_size=batch_size,
             shuffle=True, num_workers=num_workers)

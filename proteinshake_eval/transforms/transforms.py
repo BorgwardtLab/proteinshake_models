@@ -9,7 +9,7 @@ from .voxel import VoxelPretrainTransform
 
 
 def get_transformed_dataset(cfg, dataset, task, y_transform=None):
-    if task.task_type[0] == "protein_pair":
+    if 'pair' in task.task_type[0]:
         if cfg.name == 'graph':
             data_transform = GraphPairTrainTransform()
             dataset = dataset.to_graph(eps=cfg.graph_eps).pyg()

@@ -51,7 +51,7 @@ class TaskHead(nn.Module):
         self.pair_prediction = task.pair_data
 
         if self.pair_prediction:
-            if task_level != 'protein_pair':
+            if not 'pair' in task_level:
                 other_dim = task.other_dim
                 self.other_encoder = nn.Sequential(
                     nn.Linear(other_dim, embed_dim),
@@ -75,11 +75,14 @@ class TaskHead(nn.Module):
                 nn.Linear(embed_dim // 4, num_class)
             )
 
-    def forward(self, x, other_x=None):
+    def forward(self, x, other_x=None, index=None):
         if self.pair_prediction:
             assert other_x is not None, "other_data should be provided!"
             if hasattr(self, 'other_encoder'):
                 other_x = self.other_encoder(other_x)
+            if index is not None:
+                x = x[index[0]]
+                other_x = other_x[index[1]]
             x = self.aggregator(x, other_x)
 
         return self.classifier(x)
@@ -125,7 +128,7 @@ class ProteinStructureNet(nn.Module):
         self.task_head = self.build_task_head(cfg, task)
 
         self.encode_other = task.pair_data
-        self.encode_other_protein = task.task_type[0] == 'protein_pair'
+        self.encode_other_protein = True if 'pair' in task.task_type[0] else False
 
     def build_task_head(self, cfg, task):
         return TaskHead(
@@ -135,25 +138,29 @@ class ProteinStructureNet(nn.Module):
             cfg.aggregation,
         )
 
-    def forward(self, data, other_data=None):
+    def forward(self, data, other_data=None, index=None):
         x = self.encoder(data)
         other_x = other_data
         if self.encode_other_protein:
             assert other_data is not None, "other data should be provided"
             other_x = self.encoder(other_data)
 
-        output = self.task_head(x, other_x)
+        output = self.task_head(x, other_x, index)
         return output
 
     def step(self, batch):
+        index = None
         if self.encode_other:
             if self.encode_other_protein:
                 data, other_x, y = batch
+                if hasattr(y, 'y'):
+                    index = y.complete_index
+                    y = y.y
             else:
                 data, other_x, y = batch, batch.other_x, batch.y
         else:
             data, other_x, y = batch, None, batch.y
-        y_hat = self.forward(data, other_x)
+        y_hat = self.forward(data, other_x, index)
         return y_hat, y
 
     def from_pretrained(self, model_path):

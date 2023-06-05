@@ -198,13 +198,14 @@ def main(cfg: DictConfig) -> None:
 
     limit_train_batches = 5 if cfg.training.debug else None
     limit_val_batches = 5 if cfg.training.debug else None
+    accelerator = 'cpu' if cfg.training.debug else 'auto'
     # enable_checkpointing = False if args.debug else True
     trainer = pl.Trainer(
         limit_train_batches=limit_train_batches,
         limit_val_batches=limit_val_batches,
         max_epochs=cfg.training.epochs,
         devices='auto',
-        accelerator='auto',
+        accelerator=accelerator,
         enable_checkpointing=False,
         # default_root_dir=args.outdir,
         logger=[logger],
