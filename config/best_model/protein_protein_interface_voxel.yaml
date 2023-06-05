@@ -5,4 +5,4 @@ model:
 
 training:
   epochs: 100
-  batch_size: 50
+  batch_size: 25
