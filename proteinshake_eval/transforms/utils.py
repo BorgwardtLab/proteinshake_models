@@ -48,6 +48,10 @@ class PPIDataset(object):
         i, j = self.indices[index]
         data1, protein_dict1 = self.dataset[i]
         data2, protein_dict2 = self.dataset[j]
+        if self.transform is not None:
+            data1 = self.transform((data1, protein_dict1))
+            data2 = self.transform((data2, protein_dict2))
+
         y = torch.tensor(self.task.target(protein_dict1, protein_dict2)).float()
         s = None
         if self.task_type == 'binary':
@@ -72,10 +76,6 @@ class PPIDataset(object):
             y = y.view(1)
         if self.y_transform is not None:
             y = torch.from_numpy(self.y_transform.transform(y.view(1, -1)).astype('float32')).view(1)
-
-        if self.transform is not None:
-            data1 = self.transform((data1, protein_dict1))
-            data2 = self.transform((data2, protein_dict2))
 
         if s is not None:
             data1.sub_index = s[0]
