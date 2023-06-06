@@ -5,6 +5,9 @@ We build a graph neural network ("Graph"), PointNet++ ("Point"), and a 3D convol
 ## Results
 
 Table 1: *Results of baseline models/representations (columns) on the ProteinShake tasks (rows). Best marked in bold, values are given as mean and standard deviation over 4 random seeds. The optimal choice of representation depends on the task. Results were obtained on the random split, see the paper supplemental for the other splits.*
+
+<div align="center">
+  
 | Task                      | Graph                 | Point                 | Voxel                 |
 |:--------------------------|:----------------------|:----------------------|:----------------------|
 | Binding Site              | **0.721 $\pm$ 0.010** | 0.609 $\pm$ 0.006     | -         |
@@ -15,6 +18,8 @@ Table 1: *Results of baseline models/representations (columns) on the ProteinSha
 | Protein-Protein Interface | 0.883 $\pm$ 0.050     | **0.974 $\pm$ 0.003** | -         |
 | Structural Class          | **0.495 $\pm$ 0.012** | 0.293 $\pm$ 0.013     | 0.221 $\pm$ 0.014     |
 | Structure Similarity      | 0.598 $\pm$ 0.018     | **0.627 $\pm$ 0.006** | 0.620 $\pm$ 0.010     |
+  
+</div>
 
 Figure 2: *Comparison of random, sequence, and structure splits across tasks and representations.
 Models generalize less well to sequence and structure splits, respectively.*
