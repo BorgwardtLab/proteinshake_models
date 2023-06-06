@@ -7,8 +7,8 @@ from matplotlib.lines import Line2D
 
 df = pd.read_csv('results.csv')
 column_map = {'task':'Task','split':'Split','representation':'Representation','pretrained':'Pre-trained'}
-task_map = {'enzyme_class':'Enzyme Class', 'pfam':'Protein Family', 'ligand_affinity': 'Ligand Affinity', 'binding_site_detection': 'Binding Site', 'structure_similarity': 'Structure Similarity', 'structural_class': 'Structural Class', 'gene_ontology':'Gene Ontology'}
-task_map_short = {'Enzyme Class':'EC', 'Protein Family':'PF', 'Ligand Affinity': 'LA', 'Binding Site': 'BS', 'Structure Similarity': 'SS', 'Structural Class': 'SC', 'Gene Ontology':'GO'}
+task_map = {'enzyme_class':'Enzyme Class', 'pfam':'Protein Family', 'ligand_affinity': 'Ligand Affinity', 'binding_site_detection': 'Binding Site', 'structure_similarity': 'Structure Similarity', 'structural_class': 'Structural Class', 'gene_ontology':'Gene Ontology', 'protein_protein_interface':'Protein-Protein Interface'}
+task_map_short = {'Enzyme Class':'EC', 'Protein Family':'PF', 'Ligand Affinity': 'LA', 'Binding Site': 'BS', 'Structure Similarity': 'SS', 'Structural Class': 'SC', 'Gene Ontology':'GO', 'Protein-Protein Interface':'PPI'}
 split_map = {'random':'Random', 'sequence':'Sequence', 'structure':'Structure'}
 split_map_short = {'Random':'Rnd', 'Sequence':'Seq', 'Structure':'Str'}
 rep_map = {'point_cloud':'Point', 'voxel':'Voxel', 'graph':'Graph'}
@@ -54,16 +54,20 @@ for split in df.Split.unique():
     mask = mean.applymap(lambda x: False)
     for i,v in max_indices.items(): mask.loc[i,v] = True
     table = mean.applymap('{:.3f}'.format).astype(str) + ' $\pm$ ' + std.applymap('{:.3f}'.format).astype(str)
-    table = table.mask(mask, lambda x: '\\textbf{'+x+'}')
-    table = table.to_latex(escape=False).replace('nan $\pm$ nan','-').replace('llll','lccc')
-    with open(f'1_Representation_{split}.txt','w') as file:
-        file.write(table)
+
+    markdown = table.mask(mask, lambda x: '**'+x+'**').to_markdown().replace('nan $\pm$ nan','-')
+    with open(f'1_Representation_{split}.md','w') as file:
+        file.write(markdown)
+    
+    latex = table.mask(mask, lambda x: '\\textbf{'+x+'}').to_latex(escape=False).replace('nan $\pm$ nan','-').replace('llll','lccc')
+    with open(f'1_Representation_{split}.tex','w') as file:
+        file.write(latex)
 
 
 # 2: Splits. Barplot, Supergroup: Representation, Group: Split, per Pretraining
 fig, axes = plt.subplots(2,4, figsize=(10,5))
 data = df[~df['Pre-trained']]
-data['metric'] = data['metric'].map({'accuracy':'Accuracy', 'spearmanr':'Spearman R', 'mcc':'MCC', 'Fmax':'$F_{max}$'})
+data['metric'] = data['metric'].map({'accuracy':'Accuracy', 'spearmanr':'Spearman R', 'mcc':'MCC', 'Fmax':'$F_{max}$', 'auroc_median':'AUROC (median)'})
 #data.loc[:,'Task'] = data['Task'].map(task_map_short)
 for ax,task in zip(axes.flatten(), df.Task.unique()):
     task_data = data[data.Task == task]
