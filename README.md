@@ -1,94 +1,32 @@
 # ProteinShake Evaluation
 
-We build GNN, PointNet, and VoxelNet as baseline methods and perform evaluation on the proteinshake tasks.
+We build a graph neural network ("Graph"), PointNet++ ("Point"), and a 3D convolution network ("Voxel") as baseline methods and perform evaluation on the ProteinShake tasks. See the paper for more information on the architecture of the models.
 
 ## Results
 
-The results are obtained by taking the average of 4 runs with different random seeds.
+Table 1: *Results of baseline models/representations (columns) on the ProteinShake tasks (rows). Best marked in bold, values are given as mean and standard deviation over 4 random seeds. The optimal choice of representation depends on the task. Results were obtained on the random split, see the paper supplemental for the other splits.*
+| Task                      | Graph                 | Point                 | Voxel                 |
+|:--------------------------|:----------------------|:----------------------|:----------------------|
+| Binding Site              | **0.721 $\pm$ 0.010** | 0.609 $\pm$ 0.006     | -         |
+| Enzyme Class              | **0.790 $\pm$ 0.007** | 0.712 $\pm$ 0.016     | 0.656 $\pm$ 0.012     |
+| Gene Ontology             | **0.704 $\pm$ 0.001** | 0.580 $\pm$ 0.002     | 0.609 $\pm$ 0.004     |
+| Ligand Affinity           | 0.670 $\pm$ 0.019     | 0.683 $\pm$ 0.003     | **0.690 $\pm$ 0.015** |
+| Protein Family            | **0.728 $\pm$ 0.004** | 0.609 $\pm$ 0.004     | 0.543 $\pm$ 0.007     |
+| Protein-Protein Interface | 0.883 $\pm$ 0.050     | **0.974 $\pm$ 0.003** | -         |
+| Structural Class          | **0.495 $\pm$ 0.012** | 0.293 $\pm$ 0.013     | 0.221 $\pm$ 0.014     |
+| Structure Similarity      | 0.598 $\pm$ 0.018     | **0.627 $\pm$ 0.006** | 0.620 $\pm$ 0.010     |
 
-#### Tasks
+Figure 2: *Comparison of random, sequence, and structure splits across tasks and representations.
+Models generalize less well to sequence and structure splits, respectively.*
 
-| Task                    | Short Name | Metric    |
-|:------------------------|:-----------|:----------|
-| EnzymeClass             | EC         | accuracy  |
-| ProteinFamily           | pfam       | accuracy  |
-| LigandAffinity          | LA         | spearmanr |
-| BindingSiteDetection    | BSD        | MCC       |
-| StructuralClass         | StructC    | accuracy  |
-| StructureSimilarity     | StructSIM  | spearmanr |
-| ProteinProteinInterface | PPI        | auROC     |
-| GeneOntology            | GO         | Fmax      |
+<img src="https://raw.githubusercontent.com/BorgwardtLab/ProteinShake_eval/main/figures/2_Splits.svg">
 
+Figure 3: *Relative improvement due to pre-training across tasks and representations. Performance is
+substantially improved by pre-training with AlphaFoldDB. Tasks are abbreviated with their initials.
+Values are relative to the metric values obtained from the supervised model without pre-training.*
 
-#### Without pretraing (w/o PE)
+<img src="https://raw.githubusercontent.com/BorgwardtLab/ProteinShake_eval/main/figures/3_Pretraining.svg">
 
-| Model      | Split  | EC           | pfam         | LA              | BSD             | StructC      | StructSIM       | PPI             | GO              |
-|:-----------|:-------|:-------------|:-------------|:----------------|:----------------|:-------------|:----------------|:----------------|:----------------|
-| GNN        | rand   | __79.0±0.7__ | __72.8±0.4__ | 0.670±0.019     | __0.721±0.010__ | __49.5±1.2__ | 0.598±0.018     | __0.592±0.009__ | __0.704±0.001__ |
-| GNN        | seq    | __73.7±1.6__ | __63.5±2.0__ | 0.513±0.031     | __0.399±0.020__ | __50.3±0.4__ | 0.663±0.016     | 0.598±0.003     | __0.582±0.018__ |
-| GNN        | struct | __62.1±2.6__ | __41.1±0.9__ | __0.383±0.034__ | __0.219±0.022__ | __41.5±1.5__ | 0.518±0.010     | 0.500±0.018     | __0.474±0.014__ |
-| PointNet++ | rand   | 71.2±1.6     | 60.9±0.4     | 0.683±0.003     | 0.609±0.006     | 29.3±1.3     | __0.627±0.006__ | 0.573±0.011     | 0.580±0.002     |
-| PointNet++ | seq    | 63.5±2.9     | 50.0±0.8     | __0.565±0.011__ | 0.268±0.018     | 27.5±1.2     | __0.667±0.004__ | __0.611±0.005__ | 0.503±0.006     |
-| PointNet++ | struct | 60.0±2.1     | 26.9±1.2     | 0.374±0.024     | 0.152±0.019     | 18.8±1.1     | 0.564±0.011     | __0.505±0.016__ | 0.448±0.008     |
-| VoxelNet   | rand   | 65.6±1.2     | 54.3±0.7     | __0.690±0.015__ | N/A             | 22.1±1.4     | 0.620±0.010     | N/A             | 0.609±0.004     |
-| VoxelNet   | seq    | 60.0±1.4     | 42.2±1.6     | 0.549±0.031     | N/A             | 21.6±1.2     | 0.644±0.008     | N/A             | 0.516±0.010     |
-| VoxelNet   | struct | 55.0±3.4     | 18.7±1.0     | 0.355±0.048     | N/A             | 15.8±1.2     | __0.573±0.007__ | N/A             | 0.445±0.005     |
-
-#### With pretraining on AlphaFold.SwissProt (w/o PE)
-
-| Model      | Split  | EC           | pfam         | LA              | BSD             | StructC      | StructSIM       | PPI             | GO              |
-|:-----------|:-------|:-------------|:-------------|:----------------|:----------------|:-------------|:----------------|:----------------|:----------------|
-| GNN        | rand   | __81.5±1.0__ | __73.9±0.3__ | __0.723±0.028__ | __0.744±0.003__ | __49.8±0.7__ | 0.640±0.010     | __0.577±0.010__ | __0.718±0.002__ |
-| GNN        | seq    | __78.5±1.1__ | __65.9±2.0__ | 0.526±0.030     | __0.459±0.008__ | __51.4±1.1__ | 0.699±0.007     | 0.587±0.010     | __0.621±0.004__ |
-| GNN        | struct | __64.5±4.0__ | __41.8±1.2__ | __0.428±0.034__ | 0.299±0.023     | __46.7±0.9__ | 0.587±0.003     | __0.509±0.011__ | __0.509±0.008__ |
-| PointNet++ | rand   | 69.9±0.6     | 65.2±0.2     | 0.682±0.021     | 0.550±0.005     | 33.6±1.8     | __0.654±0.009__ | 0.561±0.010     | 0.597±0.004     |
-| PointNet++ | seq    | 63.1±2.3     | 58.9±0.3     | 0.545±0.009     | 0.319±0.001     | 34.5±1.0     | __0.722±0.005__ | __0.599±0.004__ | 0.515±0.005     |
-| PointNet++ | struct | 61.4±1.8     | 29.7±1.5     | 0.3201±0.024    | __0.309±0.012__ | 25.8±1.2     | __0.629±0.008__ | 0.505±0.014     | 0.475±0.005     |
-| VoxelNet   | rand   | 70.6±1.4     | 59.2±0.5     | 0.705±0.013     | N/A             | 28.4±0.9     | 0.620±0.010     | N/A             | 0.607±0.002     |
-| VoxelNet   | seq    | 61.7±1.6     | 47.7±2.4     | __0.564±0.022__ | N/A             | 26.1±1.1     | 0.680±0.007     | N/A             | 0.528±0.005     |
-| VoxelNet   | struct | 60.5±1.9     | 21.0±0.8     | 0.383±0.043     | N/A             | 18.4±0.3     | 0.571±0.009     | N/A             | 0.451±0.005     |
-
-
-#### Without pretraing
-
-| Model    | Split  | EC           | pfam         | LA              | BSD             | StructC      | StructSIM   | PPI             |
-|:---------|:-------|:-------------|:-------------|:----------------|:----------------|:-------------|:------------|:----------------|
-| GNN      | rand   | __80.5±0.3__ | __77.4±0.4__ | 0.658±0.009     | __0.691±0.015__ | __55.3±0.6__ | 0.696±0.001 | __0.572±0.006__ |
-| GNN      | seq    | __75.8±1.2__ | __72.7±1.1__ | 0.505±0.016     | __0.369±0.017__ | __59.5±1.2__ | 0.744±0.005 | __0.578±0.008__ |
-| GNN      | struct | __61.6±1.5__ | __48.8±1.7__ | __0.377±0.016__ | __0.156±0.020__ | __55.9±2.4__ | 0.634±0.006 | __0.499±0.005__ |
-| PointNet | rand   | 56.9±1.6     | 40.2±0.9     | __0.696±0.021__ | 0.500±0.007     | 10.0±1.0     |             | 0.512±0.030     |
-| PointNet | seq    | 51.1±3.0     | 25.7±1.7     | __0.553±0.033__ | 0.045±0.053     | 8.6±0.9      |             | 0.530±0.016     |
-| PointNet | struct | 53.7±2.6     | 9.9±0.8      | 0.364±0.031     | 0.080±0.056     | 3.4±1.4      |             | 0.483±0.029     |
-| VoxelNet | rand   | 65.6±1.2     | 54.3±0.7     | 0.690±0.015     | N/A             | 22.1±1.4     | 0.620±0.010 | N/A             |
-| VoxelNet | seq    | 60.0±1.4     | 42.2±1.6     | 0.549±0.031     | N/A             | 21.6±1.2     | 0.644±0.008 | N/A             |
-| VoxelNet | struct | 55.0±3.4     | 18.7±1.0     | 0.355±0.048     | N/A             | 15.8±1.2     | 0.573±0.007 | N/A             |
-
-#### With pretraining on AlphaFold.SwissProt
-
-| Model    | Split  | EC           | pfam         | LA              | BSD             | StructC      | StructSIM   | PPI             |
-|:---------|:-------|:-------------|:-------------|:----------------|:----------------|:-------------|:------------|:----------------|
-| GNN      | rand   | __84.1±0.3__ | __78.4±0.3__ | __0.735±0.018__ | __0.740±0.003__ | __57.5±0.8__ | 0.720±0.002 | __0.573±0.009__ |
-| GNN      | seq    | __81.2±1.1__ | __70.8±2.4__ | 0.555±0.011     | __0.450±0.010__ | __62.4±1.1__ | 0.767±0.001 | __0.599±0.006__ |
-| GNN      | struct | __71.0±1.7__ | __50.7±2.0__ | 0.427±0.021     | __0.299±0.009__ | __61.6±0.9__ | 0.665±0.008 | __0.507±0.004__ |
-| PointNet | rand   | 57.2±1.6     | 33.4±0.4     | 0.670±0.030     | 0.484±0.013     | 8.9±0.9      |             | 0.517±0.013     |
-| PointNet | seq    | 49.8±1.3     | 19.7±1.8     | 0.541±0.021     | 0.074±0.070     | 6.9±0.8      |             | 0.522±0.007     |
-| PointNet | struct | 51.6±8.4     | 7.1±0.4      | __0.383±0.038__ | 0.141±0.013     | 5.2±0.6      |             | 0.494±0.008     |
-| VoxelNet | rand   | 70.6±1.4     | 59.2±0.5     | 0.705±0.013     | N/A             | 28.4±0.9     | 0.620±0.010 | N/A             |
-| VoxelNet | seq    | 61.7±1.6     | 47.7±2.4     | __0.564±0.022__ | N/A             | 26.1±1.1     | 0.680±0.007 | N/A             |
-| VoxelNet | struct | 60.5±1.9     | 21.0±0.8     | 0.383±0.043     | N/A             | 18.4±0.3     | 0.571±0.009 | N/A             |
-
-## TODO
-
-#### Tasks
-
-- [x] EnzymeClass
-- [x] LigandAffinity
-- [x] BindingSiteDetection
-- [x] ProteinFamily
-- [x] StructureSimilarity
-- [x] StructuralClass
-- [x] ProteinProteinInterface
-- [x] GeneOntology
 
 ## Installation
 
@@ -102,6 +40,11 @@ pip install hydra-core --upgrade
 pip install proteinshake
 pip install -e .
 ```
+
+## Model weights
+
+Weights for pre-trained and supervised models can be obtained at:
+
 
 ## Training
 
