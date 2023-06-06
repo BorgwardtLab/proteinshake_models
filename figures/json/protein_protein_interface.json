@@ -1,0 +1,22 @@
+[
+    {
+        "Name": "ProteinShake Baseline",
+        "Author": "Kucera et al. 2023",
+        "Paper": "https://github.com/BorgwardtLab/proteinshake",
+        "Code": "https://github.com/BorgwardtLab/ProteinShake_eval",
+        "Representation": "Graph",
+        "Random Split": "0.883",
+        "Sequence Split": "0.869",
+        "Structure Split": "0.840"
+    },
+    {
+        "Name": "ProteinShake Baseline",
+        "Author": "Kucera et al. 2023",
+        "Paper": "https://github.com/BorgwardtLab/proteinshake",
+        "Code": "https://github.com/BorgwardtLab/ProteinShake_eval",
+        "Representation": "Point",
+        "Random Split": "0.974",
+        "Sequence Split": "0.776",
+        "Structure Split": "0.747"
+    }
+]

@@ -22,7 +22,6 @@ df.Task = df.Task.map(task_map)
 df.Split = df.Split.map(split_map)
 df.Representation = df.Representation.map(rep_map)
 
-'''
 # 1 (one whole table): Representations. Table of Representations vs. Task vs. Split
 table = df[~df['Pre-trained']]
 table.loc[:,'Split'] = table['Split'].map(split_map_short)
@@ -41,7 +40,7 @@ with open(f'1_Representation.txt','w') as file:
         file.write(table)
 '''
 
-
+'''
 # 1: Representations. Table of Representations vs. Task, per Split
 data = df[~df['Pre-trained']]
 for split in df.Split.unique():
@@ -113,3 +112,25 @@ for ax,rep in zip(axes.flatten(), df.Representation.unique()):
 plt.tight_layout()
 plt.savefig(f'3_Pretraining.svg')
 plt.close()
+
+# Leaderboard: json format
+import json
+reverse_task_map = {v:k for k,v in task_map.items()}
+data = df[~df['Pre-trained']]
+for task in df.Task.unique():
+    task_data = data[data.Task == task]
+    json_string = []
+    for rep in task_data.Representation.unique():
+        rep_data = task_data[task_data.Representation == rep]
+        json_string.append({
+            "Name":"ProteinShake Baseline",
+            "Author": "Kucera et al. 2023",
+            "Paper": "https://github.com/BorgwardtLab/proteinshake",
+            "Code": "https://github.com/BorgwardtLab/ProteinShake_eval",
+            "Representation": rep,
+            "Random Split": '{:.3f}'.format(rep_data[rep_data.Split == 'Random']['Score'].mean()),
+            "Sequence Split": '{:.3f}'.format(rep_data[rep_data.Split == 'Sequence']['Score'].mean()),
+            "Structure Split": '{:.3f}'.format(rep_data[rep_data.Split == 'Structure']['Score'].mean())
+        })
+    with open(f'json/{reverse_task_map[task]}.json','w') as file:
+        file.write(json.dumps(json_string, indent=4))
