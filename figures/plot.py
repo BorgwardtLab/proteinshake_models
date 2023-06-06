@@ -22,6 +22,7 @@ df.Task = df.Task.map(task_map)
 df.Split = df.Split.map(split_map)
 df.Representation = df.Representation.map(rep_map)
 
+'''
 # 1 (one whole table): Representations. Table of Representations vs. Task vs. Split
 table = df[~df['Pre-trained']]
 table.loc[:,'Split'] = table['Split'].map(split_map_short)
@@ -40,7 +41,6 @@ with open(f'1_Representation.txt','w') as file:
         file.write(table)
 '''
 
-'''
 # 1: Representations. Table of Representations vs. Task, per Split
 data = df[~df['Pre-trained']]
 for split in df.Split.unique():
@@ -116,6 +116,7 @@ plt.close()
 # Leaderboard: json format
 import json
 reverse_task_map = {v:k for k,v in task_map.items()}
+reverse_task_map['Protein Family'] = 'protein_family'
 data = df[~df['Pre-trained']]
 for task in df.Task.unique():
     task_data = data[data.Task == task]
