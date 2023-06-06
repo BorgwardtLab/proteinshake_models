@@ -48,9 +48,7 @@ pip install -e .
 
 ## Model weights
 
-Weights for pre-trained and supervised models can be obtained at:
-
-
+The weights for pre-trained models are available [in the repository](https://github.com/BorgwardtLab/ProteinShake_eval/tree/main/pretrained).
 ## Training
 
 #### Supervised training/Finetuning
