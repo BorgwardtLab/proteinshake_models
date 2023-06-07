@@ -1,6 +1,6 @@
 # ProteinShake Evaluation
 
-We build a graph neural network ("Graph"), PointNet++ ("Point"), and a 3D convolution network ("Voxel") as baseline methods and perform evaluation on the ProteinShake tasks. See the paper for more information on the architecture of the models.
+We build a graph neural network ("Graph"), PointNet++ ("Point"), and a 3D convolution network ("Voxel") as baseline methods and perform evaluation on the [ProteinShake](https://github.com/BorgwardtLab/proteinshake) tasks. See the paper for more information on the architecture of the models.
 
 ## Results
 
@@ -35,6 +35,18 @@ Values are relative to the metric values obtained from the supervised model with
 
 ## Installation
 
+One can use `conda`, `mamba` or `pip` to download required packages. The main dependecies are:
+
+```bash
+proteinshake
+pytorch
+pyg
+pytorch-lightning
+hydra
+```
+
+An example for installing `ProteinShake_eval` with `mamba` (similar but faster than `conda`):
+
 ```bash
 mamba create -n proteinshake
 mamba activate proteinshake
@@ -53,9 +65,17 @@ The weights for pre-trained models are available [in the repository](https://git
 
 #### Supervised training/Finetuning
 
+Train a graph neural network from scratch for the Enzyme Class prediction task:
 ```bash
-python experiments/train.py task=enzyme_class
+python experiments/train.py task=enzyme_class representation=graph
 ```
+
+Finetune a PointNet++ for the Ligand Affinity prediction task:
+```bash
+python experiments/train.py task=ligand_affinity representation=point_cloud pretrained=true
+```
+
+Use `python experiments/train.py` to see more details.
 
 #### Pretraining with masked residue prediction
 
