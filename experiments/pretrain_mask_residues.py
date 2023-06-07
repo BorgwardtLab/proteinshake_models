@@ -91,7 +91,6 @@ def main(cfg: DictConfig) -> None:
         devices='auto',
         accelerator='auto',
         enable_checkpointing=False,
-        # default_root_dir=cfg.outdir,
         logger=[logger],
         callbacks=callbacks
     )
@@ -101,29 +100,6 @@ def main(cfg: DictConfig) -> None:
     save_dir = Path(cfg.paths.log_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
     net.save(save_dir / "model.pt")
-
-    # sanity check for node masking
-    # for data in data_loader:
-    #     print(data)
-    #     print(data.x.shape)
-    #     print(data.x)
-    #     print(data.masked_label)
-    #     print(data.masked_indices)
-    #     # out = model(data)
-    #     # print(out)
-    #     # print(out.shape)
-    #     break
-
-    # for data in data_loader:
-    #     print(data)
-    #     print(data.x.shape)
-    #     print(data.x)
-    #     print(data.masked_label)
-    #     print(data.masked_indices)
-    #     # out = model(data)
-    #     # print(out)
-    #     # print(out.shape)
-    #     break
 
 
 if __name__ == "__main__":

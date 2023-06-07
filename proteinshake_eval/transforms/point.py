@@ -4,22 +4,6 @@ from torch_geometric.data import Data
 from .utils import reshape_data, add_other_data
 
 
-# class PointMaskingTransform():
-
-#     def __call__(self, data, protein_dict, mask_ratio=0.15):
-#         coords, labels = data[:,:3], data[:,3]
-#         labels = torch.eye(20)[labels.long()].float()
-#         L = 1024
-#         coords = torch.nn.functional.pad(coords[:L], (0,0,0,max(0,L-coords.shape[0])))
-#         labels = torch.nn.functional.pad(labels[:L], (0,0,0,max(0,L-labels.shape[0])))
-#         length = labels.shape[0]
-#         n, m = int(length * mask_ratio), length-int(length * mask_ratio)
-#         mask = torch.cat([torch.ones(n),torch.zeros(m)])[torch.randperm(length)].bool()
-#         masked = labels.clone()
-#         masked[mask] = torch.ones(labels.shape[1]).float()
-#         return coords, labels, masked, mask
-
-
 class PointTrainTransform(object):
     def __init__(self, task, y_transform=None, max_len=1000):
         self.task = task

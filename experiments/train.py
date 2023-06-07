@@ -77,9 +77,7 @@ class ProteinTaskTrainer(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         y_hat, y = self.model.val_step(batch)
-        # loss = self.criterion(y_hat, y)
 
-        # self.log('val_loss', loss, batch_size=len(y))
         outputs = {'y_pred': y_hat, 'y_true': y}
         self.validation_step_outputs.append(outputs)
         return outputs
@@ -97,7 +95,6 @@ class ProteinTaskTrainer(pl.LightningModule):
             all_true, all_preds = all_true.cpu().numpy(), all_preds.cpu().numpy()
             all_true, all_preds = self.inverse_transform(all_true, all_preds)
         scores = compute_metrics(all_true, all_preds, self.task)
-        # scores = self.task.evaluate(all_true, all_preds)
         scores = {'{}_'.format(stage) + str(key): val for key, val in scores.items()}
         if stage == 'val':
             self.log_dict(scores)
@@ -113,7 +110,6 @@ class ProteinTaskTrainer(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         y_hat, y = self.model.val_step(batch)
-        # loss = self.criterion(y_hat, y)
         outputs = {'y_pred': y_hat, 'y_true': y}
         self.test_step_outputs.append(outputs)
         return outputs
@@ -209,7 +205,6 @@ def main(cfg: DictConfig) -> None:
     limit_train_batches = 5 if cfg.training.debug else None
     limit_val_batches = 5 if cfg.training.debug else None
     accelerator = 'cpu' if cfg.training.debug else 'auto'
-    # enable_checkpointing = False if args.debug else True
     trainer = pl.Trainer(
         limit_train_batches=limit_train_batches,
         limit_val_batches=limit_val_batches,
@@ -217,7 +212,6 @@ def main(cfg: DictConfig) -> None:
         devices='auto',
         accelerator=accelerator,
         enable_checkpointing=False,
-        # default_root_dir=args.outdir,
         logger=[logger],
         callbacks=callbacks
     )
@@ -227,7 +221,6 @@ def main(cfg: DictConfig) -> None:
     model.best_weights = None
     trainer.test(model, test_loader)
     net.save(Path(cfg.paths.output_dir) / "model.pt")
-    # model.plot()
 
 
 if __name__ == "__main__":

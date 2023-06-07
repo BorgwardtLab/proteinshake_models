@@ -6,10 +6,6 @@ import torch_geometric.transforms as T
 
 transform = T.Compose([
     T.NormalizeScale(),
-    # T.RandomJitter(0.01),
-    # T.RandomRotate(15, axis=0),
-    # T.RandomRotate(15, axis=1),
-    # T.RandomRotate(15, axis=2)
 ])
 
 pretrain_transform = T.Compose([
