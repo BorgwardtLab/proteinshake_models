@@ -82,3 +82,7 @@ Use `python experiments/train.py` to see more details.
 ```bash
 python experiments/pretrain_mask_residues.py representation=graph
 ```
+
+## License
+
+Code in this repository is licensed under BSD-3, the model weights are licensed under CC-BY-4.0.
