@@ -1,4 +1,4 @@
-# ProteinShake Evaluation
+# ProteinShake Models
 
 We build a graph neural network ("Graph"), PointNet++ ("Point"), and a 3D convolution network ("Voxel") as baseline methods and perform evaluation on the [ProteinShake](https://github.com/BorgwardtLab/proteinshake) tasks. See the paper for more information on the architecture of the models.
 
