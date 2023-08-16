@@ -24,13 +24,13 @@ Table 1: *Results of baseline models/representations (columns) on the ProteinSha
 Figure 2: *Comparison of random, sequence, and structure splits across tasks and representations.
 Models generalize less well to sequence and structure splits, respectively.*
 
-<img src="https://raw.githubusercontent.com/BorgwardtLab/ProteinShake_eval/main/figures/2_Splits.svg">
+<img src="https://raw.githubusercontent.com/BorgwardtLab/proteinshake_eval/main/figures/2_Splits.svg">
 
 Figure 3: *Relative improvement due to pre-training across tasks and representations. Performance is
 substantially improved by pre-training with AlphaFoldDB. Tasks are abbreviated with their initials.
 Values are relative to the metric values obtained from the supervised model without pre-training.*
 
-<img src="https://raw.githubusercontent.com/BorgwardtLab/ProteinShake_eval/main/figures/3_Pretraining.svg">
+<img src="https://raw.githubusercontent.com/BorgwardtLab/proteinshake_eval/main/figures/3_Pretraining.svg">
 
 
 ## Installation
@@ -45,7 +45,7 @@ pytorch-lightning
 hydra
 ```
 
-An example for installing `ProteinShake_eval` with `mamba` (similar but faster than `conda`):
+An example for installing `proteinshake_eval` with `mamba` (similar but faster than `conda`):
 
 ```bash
 mamba create -n proteinshake
@@ -60,7 +60,7 @@ pip install -e .
 
 ## Model weights
 
-The weights for pre-trained models are available [in the repository](https://github.com/BorgwardtLab/ProteinShake_eval/tree/main/pretrained).
+The weights for pre-trained models are available [in the repository](https://github.com/BorgwardtLab/proteinshake_eval/tree/main/pretrained).
 ## Training
 
 #### Supervised training/Finetuning

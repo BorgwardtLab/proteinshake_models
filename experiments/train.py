@@ -36,6 +36,8 @@ from proteinshake_eval.models.protein_model import ProteinStructureNet
 import pytorch_lightning as pl
 import logging
 
+torch.set_float32_matmul_precision('medium')
+
 log = logging.getLogger(__name__)
 
 
@@ -160,7 +162,7 @@ def main(cfg: DictConfig) -> None:
     pl.seed_everything(cfg.seed, workers=True)
 
     task = get_task(cfg.task.class_name)(
-        root=cfg.task.path, split=cfg.task.split, verbosity=1)
+        root=cfg.task.path, split=cfg.task.split, verbosity=2)
     dset = task.dataset
     
     # Filter out proteins longer than 3000
@@ -199,7 +201,7 @@ def main(cfg: DictConfig) -> None:
     logger = pl.loggers.CSVLogger(cfg.paths.output_dir, name='csv_logs')
     callbacks = [
         pl.callbacks.LearningRateMonitor(),
-        pl.callbacks.TQDMProgressBar(refresh_rate=1000)
+        pl.callbacks.TQDMProgressBar()
     ]
 
     limit_train_batches = 5 if cfg.training.debug else None

@@ -3,7 +3,7 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ProteinShake_eval"
+name = "proteinshake_eval"
 authors = [
     {name = "Dexiong Chen", email = "dchen@ethz.ch"},
 ]

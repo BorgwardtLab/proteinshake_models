@@ -2,6 +2,6 @@ debug: false
 epochs: 100
 lr: 0.001
 weight_decay: 1e-06
-batch_size: 100
+batch_size: 50
 warmup: 10
 num_workers: 4

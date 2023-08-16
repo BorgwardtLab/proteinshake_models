@@ -127,7 +127,7 @@ for task in df.Task.unique():
             "Name":"ProteinShake Baseline",
             "Author": "Kucera et al. 2023",
             "Paper": "https://github.com/BorgwardtLab/proteinshake",
-            "Code": "https://github.com/BorgwardtLab/ProteinShake_eval",
+            "Code": "https://github.com/BorgwardtLab/proteinshake_eval",
             "Representation": rep,
             "Random Split": '{:.3f}'.format(rep_data[rep_data.Split == 'Random']['Score'].mean()),
             "Sequence Split": '{:.3f}'.format(rep_data[rep_data.Split == 'Sequence']['Score'].mean()),
