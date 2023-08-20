@@ -90,6 +90,8 @@ You can easily use the provided models and weights to add your own prediction he
 The below code example shows how to prepare the data and load the model weights for the graph model.
 See also `proteinshake_eval/models/` for models of the other representations, and `config/` for the correct parameters.
 
+The pretrained models return an embedding of the entire protein (`global_pool=mean`) or of the residues (`global_pool=None`) which you can use in your own model. As it is a torch module, you can use it like any other layer.
+
 ```python
 from proteinshake.tasks import EnzymeClassTask
 from proteinshake_eval.models.graph import GNN_encoder
