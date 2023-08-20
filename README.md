@@ -61,6 +61,7 @@ pip install -e .
 ## Model weights
 
 The weights for pre-trained models are available [in the repository](https://github.com/BorgwardtLab/ProteinShake_eval/tree/main/pretrained).
+
 ## Training
 
 #### Supervised training/Finetuning
@@ -81,6 +82,32 @@ Use `python experiments/train.py` to see more details.
 
 ```bash
 python experiments/pretrain_mask_residues.py representation=graph
+```
+
+#### Using pretrained models with custom prediction heads
+
+You can easily use the provided models and weights to add your own prediction heads to the pretrained models.
+The below code example shows how to prepare the data and load the model weights for the graph model.
+See also `proteinshake_eval/models/` for models of the other representations, and `config/` for the correct parameters.
+
+```python
+from proteinshake.tasks import EnzymeClassTask
+from proteinshake_eval.models.graph import GNN_encoder
+from proteinshake_eval.transforms.graph import GraphTrainTransform
+from torch_geometric.loader import DataLoader
+
+# prepare the data
+task = EnzymeClassTask()
+data_transform = GraphTrainTransform(task)
+task = task.to_graph(eps=8).pyg(transform=data_transform)
+
+# load the model and pretrained weights
+model = GNN_encoder(embed_dim=256, num_layers=5, global_pool='mean')
+model.from_pretrained('pretrained/graph/model.pt')
+
+# run some inference
+loader = DataLoader(task.dataset)
+print(model.forward(next(iter(loader))))
 ```
 
 ## License
