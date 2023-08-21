@@ -73,6 +73,8 @@ def main(cfg: DictConfig) -> None:
     )
     for inputs in test_loader:
         break
+    if torch.cuda.is_available():
+        inputs = inputs.to("cuda")
 
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True, record_shapes=True) as prof:
         with record_function("model_inference"):
