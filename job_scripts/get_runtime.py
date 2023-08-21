@@ -37,6 +37,8 @@ def main(cfg: DictConfig) -> None:
         task.pair_data = False
     task.other_dim = dset[0].other_x.shape[-1] if cfg.task.name == 'ligand_affinity' else None 
     net = ProteinStructureNet(cfg.model, task)
+    if torch.cuda.is_available():
+        net.to("cuda")
 
     train_loader, val_loader, test_loader = get_data_loaders(
         dset, task, index_masks,
