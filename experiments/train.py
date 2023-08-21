@@ -199,7 +199,6 @@ def main(cfg: DictConfig) -> None:
     logger = pl.loggers.CSVLogger(cfg.paths.output_dir, name='csv_logs')
     callbacks = [
         pl.callbacks.LearningRateMonitor(),
-        pl.callbacks.TQDMProgressBar(refresh_rate=1000)
     ]
 
     limit_train_batches = 5 if cfg.training.debug else None

@@ -6,4 +6,6 @@ model:
 
 training:
   lr: 0.0005
-  epochs: 50
+  epochs: 10
+  warmup: 2
+  batch_size: 30
