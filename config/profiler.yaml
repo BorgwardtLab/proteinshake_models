@@ -1,0 +1,21 @@
+defaults:
+  - _self_
+  - task: enzyme_class
+  - representation: graph
+  - model: ${representation}
+  - training: default
+  - paths: default
+  - optional best_model: ${task}_${representation}
+  - debug: null
+
+seed: 0
+pretrained: true
+pretrained_path: pretrained/${representation.name}/model.pt
+
+# output directory, generated dynamically on each run
+hydra:
+  run:
+    dir: outputs/${task.name}/runs/${now:%Y-%m-%d}_${now:%H-%M-%S}
+  sweep:
+    dir: outputs/${task.name}/multiruns/${now:%Y-%m-%d}_${now:%H-%M-%S}
+    subdir: ${hydra.job.num}
