@@ -25,8 +25,8 @@
         "Paper": "https://github.com/BorgwardtLab/proteinshake",
         "Code": "https://github.com/BorgwardtLab/ProteinShake_eval",
         "Representation": "Voxel",
-        "Random Split": "0.609",
-        "Sequence Split": "0.516",
-        "Structure Split": "0.445"
+        "Random Split": "0.602",
+        "Sequence Split": "0.543",
+        "Structure Split": "0.454"
     }
 ]
